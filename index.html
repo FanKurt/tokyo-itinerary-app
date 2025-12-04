@@ -530,28 +530,28 @@
             </div>
         </div>
 
-        <!-- 新增：確認身分變更模態窗 -->
-        <div v-if="showIdentityConfirmModal" class="absolute inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
-            <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-                <div class="text-center mb-6">
-                    <i class="fa-solid fa-user-edit text-4xl text-tokyo-600 mb-2"></i>
-                    <h3 class="text-xl font-bold">變更身分</h3>
-                    <p class="text-xs text-gray-500">您目前的身分是 <span class="font-bold text-tokyo-600">{{ currentUser }}</span></p>
-                </div>
-                <div class="space-y-4">
-                    <input v-model="tempIdentity" @keyup.enter="saveIdentity" placeholder="輸入新的暱稱" class="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-xl text-center font-bold text-lg border-2 border-transparent focus:border-tokyo-500 outline-none dark:text-white">
-                    <p class="text-xs text-gray-500 text-center">這會顯示在最後編輯者資訊中</p>
-                </div>
-                <div class="flex gap-3 mt-6">
-                    <button @click="cancelIdentityChange" class="flex-1 px-5 py-3 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold">
-                        取消
-                    </button>
-                    <button @click="saveIdentity" :disabled="!tempIdentity" class="flex-1 bg-tokyo-600 text-white rounded-xl font-bold py-3 disabled:opacity-50">
-                        確認變更
-                    </button>
-                </div>
-            </div>
-        </div>
+		<!-- 修正後完整的變更身分模態窗 -->
+		<div v-if="showIdentityConfirmModal" class="absolute inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+			<div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+				<div class="text-center mb-6">
+					<i class="fa-solid fa-user-edit text-4xl text-tokyo-600 mb-2"></i>
+					<h3 class="text-xl font-bold">變更身分</h3>
+					<p class="text-xs text-gray-500">您目前的身分是 <span class="font-bold text-tokyo-600">{{ currentUser }}</span></p>
+				</div>
+				<div class="space-y-4">
+					<input v-model="tempIdentity" @keyup.enter="saveIdentity" placeholder="輸入新的暱稱" class="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-xl text-center font-bold text-lg border-2 border-transparent focus:border-tokyo-500 outline-none dark:text-white">
+					<p class="text-xs text-gray-500 text-center">這會顯示在最後編輯者資訊中</p>
+				</div>
+				<div class="flex gap-3 mt-6">
+					<button @click="cancelIdentityChange" class="flex-1 px-5 py-3 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold">
+						取消
+					</button>
+					<button @click="saveIdentity" :disabled="!tempIdentity" class="flex-1 px-5 py-3 bg-tokyo-600 text-white rounded-xl font-bold disabled:opacity-50">
+						確認變更
+					</button>
+				</div>
+			</div>
+		</div>
 
     </div>
 
