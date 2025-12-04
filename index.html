@@ -62,6 +62,10 @@
         .token-input-container i { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #6b7280; }
         .token-help { font-size: 0.7rem; color: #6b7280; margin-top: 0.25rem; }
         .token-help a { color: #e11d48; text-decoration: underline; }
+        
+        /* 快速金額按鈕 */
+        .quick-amount-btn { transition: all 0.2s ease; }
+        .quick-amount-btn:active { transform: scale(0.95); }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen w-screen overflow-hidden">
@@ -228,18 +232,57 @@
                         <div v-for="cat in expenseStats" :key="cat.name" :style="{ width: cat.percent + '%', backgroundColor: cat.color }" class="h-full"></div>
                     </div>
                     
+                    <!-- 視覺化圖表區域 -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <!-- 每人支出比例 -->
+                        <div class="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+                            <p class="text-[10px] text-slate-300 font-bold mb-2">每人支出</p>
+                            <div v-for="member in memberBalances" :key="member.name" class="flex items-center mb-1.5">
+                                <div class="w-2 h-2 rounded-full mr-2" :style="{backgroundColor: member.color}"></div>
+                                <span class="text-xs flex-1 truncate">{{ member.name }}</span>
+                                <span class="text-xs font-mono">¥{{ formatNumber(member.amount) }}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 分類支出長條圖 -->
+                        <div class="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+                            <p class="text-[10px] text-slate-300 font-bold mb-2">分類支出</p>
+                            <div v-for="cat in expenseStats" :key="cat.name" class="mb-1.5">
+                                <div class="flex justify-between text-[10px] mb-0.5">
+                                    <span>{{ cat.name }}</span>
+                                    <span>{{ cat.percent.toFixed(0) }}%</span>
+                                </div>
+                                <div class="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div :style="{width: cat.percent+'%', backgroundColor: cat.color}" class="h-full"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Settlement -->
                     <div class="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
-                        <p class="text-[10px] text-emerald-400 font-bold mb-2">結算建議</p>
-                        <div v-for="(s, i) in settlements" :key="i" class="flex justify-between items-center text-xs py-1 border-b border-white/10 last:border-0">
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-[10px] text-emerald-400 font-bold">結算建議</p>
+                            <button @click="clearAllSettlementsPaid" v-if="hasSettlementsPaid" class="text-[10px] text-slate-400 hover:text-slate-300">
+                                <i class="fa-solid fa-rotate-right mr-1"></i>重置
+                            </button>
+                        </div>
+                        <div v-for="(s, i) in settlements" :key="i" class="flex justify-between items-center text-xs py-2 border-b border-white/10 last:border-0">
                             <div class="flex items-center gap-2">
+                                <button @click="toggleSettlementPaid(s)" class="w-4 h-4 rounded border flex items-center justify-center transition-all" 
+                                        :class="s.paid ? 'bg-emerald-500 border-emerald-500' : 'border-slate-400 hover:border-emerald-400'">
+                                    <i v-if="s.paid" class="fa-solid fa-check text-white text-[8px]"></i>
+                                </button>
                                 <span class="font-bold">{{ s.from }}</span>
                                 <i class="fa-solid fa-arrow-right text-slate-500"></i>
                                 <span class="font-bold text-emerald-300">{{ s.to }}</span>
                             </div>
-                            <span class="font-mono">¥{{ formatNumber(s.amount) }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono">¥{{ formatNumber(s.amount) }}</span>
+                                <span v-if="s.paid" class="text-[10px] text-emerald-400 px-2 py-0.5 bg-emerald-900/30 rounded-full">已結清</span>
+                            </div>
                         </div>
-                        <div v-if="settlements.length === 0" class="text-xs text-center text-slate-400">帳目平衡</div>
+                        <div v-if="settlements.length === 0" class="text-xs text-center text-slate-400 py-2">帳目平衡</div>
                     </div>
                 </div>
 
@@ -390,16 +433,67 @@
                 <h3 class="text-xl font-bold mb-4 text-gray-800 dark:text-white">新增支出</h3>
                 <div class="space-y-4">
                     <input v-model="expenseForm.title" placeholder="項目" class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 font-bold dark:text-white">
-                    <div class="relative"><span class="absolute left-4 top-3 text-gray-400 font-bold">¥</span>
-                        <input type="number" v-model.number="expenseForm.amount" class="w-full bg-gray-50 dark:bg-slate-800 pl-8 p-3 rounded-xl border border-gray-200 dark:border-slate-700 text-xl font-mono font-bold dark:text-white">
+                    
+                    <!-- 快速金額按鈕 -->
+                    <div>
+                        <p class="text-xs font-bold text-gray-400 mb-2">快速金額</p>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <button v-for="amt in [500, 1000, 2000, 5000, 10000, 20000]" 
+                                    @click="expenseForm.amount = amt"
+                                    class="quick-amount-btn px-3 py-1.5 bg-gray-100 dark:bg-slate-700 rounded-lg text-sm font-mono">
+                                ¥{{ amt.toLocaleString() }}
+                            </button>
+                        </div>
                     </div>
+                    
+                    <div class="relative">
+                        <span class="absolute left-4 top-3 text-gray-400 font-bold">¥</span>
+                        <input type="number" 
+                               v-model.number="expenseForm.amount" 
+                               inputmode="decimal"
+                               placeholder="輸入金額"
+                               class="w-full bg-gray-50 dark:bg-slate-800 pl-8 p-3 rounded-xl border border-gray-200 dark:border-slate-700 text-xl font-mono font-bold dark:text-white">
+                    </div>
+                    
                     <select v-model="expenseForm.category" class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 font-bold dark:text-white">
                          <option value="餐飲">🍱 餐飲</option><option value="交通">🚄 交通</option><option value="住宿">🏨 住宿</option><option value="購物">🛍️ 購物</option><option value="門票">🎟️ 門票</option><option value="其他">🔹 其他</option>
                     </select>
+                    
+                    <!-- 分攤方式選擇 -->
+                    <div>
+                        <p class="text-xs font-bold text-gray-400 mb-2">分攤方式</p>
+                        <div class="flex gap-2 mb-3">
+                            <button @click="expenseForm.splitMethod = 'equal'" 
+                                    :class="['px-3 py-2 rounded-lg text-sm font-bold border', expenseForm.splitMethod === 'equal' ? 'bg-blue-500 text-white border-transparent' : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700']">
+                                平均分攤
+                            </button>
+                            <button @click="expenseForm.splitMethod = 'participants'" 
+                                    :class="['px-3 py-2 rounded-lg text-sm font-bold border', expenseForm.splitMethod === 'participants' ? 'bg-blue-500 text-white border-transparent' : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700']">
+                                選擇參與者
+                            </button>
+                        </div>
+                        
+                        <!-- 選擇參與者 -->
+                        <div v-if="expenseForm.splitMethod === 'participants'" class="mt-2">
+                            <p class="text-xs font-bold text-gray-400 mb-2">參與者</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button v-for="m in members" :key="m" 
+                                        @click="toggleParticipant(m)"
+                                        :class="['px-3 py-1.5 rounded-lg text-sm font-bold border', expenseForm.participants.includes(m) ? 'bg-emerald-500 text-white border-transparent' : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700']">
+                                    {{ m }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div>
                         <p class="text-xs font-bold text-gray-400 mb-2">付款人</p>
                         <div class="flex flex-wrap gap-2">
-                            <button v-for="m in members" :key="m" @click="expenseForm.payer = m" :class="['px-3 py-2 rounded-lg text-sm font-bold border', expenseForm.payer === m ? 'bg-emerald-500 text-white border-transparent' : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700']">{{ m }}</button>
+                            <button v-for="m in members" :key="m" 
+                                    @click="expenseForm.payer = m" 
+                                    :class="['px-3 py-2 rounded-lg text-sm font-bold border', expenseForm.payer === m ? 'bg-emerald-500 text-white border-transparent' : 'bg-white dark:bg-slate-800 text-gray-500 border-gray-200 dark:border-slate-700']">
+                                {{ m }}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -479,6 +573,9 @@
                 const schedule = ref([]);
                 const expenses = ref([]);
                 const members = ref(['我', '旅伴A']);
+                
+                // 新增：分帳狀態追蹤
+                const settlementsPaid = ref({});
 
                 // Forms & Modals
                 const showEventModal = ref(false);
@@ -487,7 +584,15 @@
                 const showIdentityModal = ref(!localStorage.getItem('tokyo_user_identity'));
                 const isEditing = ref(false);
                 const eventForm = ref({});
-                const expenseForm = ref({ title: '', amount: '', payer: '', category: '餐飲' });
+                const expenseForm = ref({ 
+                    title: '', 
+                    amount: '', 
+                    payer: '', 
+                    category: '餐飲',
+                    splitMethod: 'equal', // equal, participants, custom
+                    participants: [],
+                    customSplits: {}
+                });
                 const newMemberName = ref('');
                 const tempIdentity = ref('');
 
@@ -603,6 +708,7 @@
                         schedule.value = data.schedule || [];
                         expenses.value = data.expenses || [];
                         members.value = data.members || [];
+                        settlementsPaid.value = data.settlementsPaid || {};
                         lastUpdated.value = data.lastUpdated;
                         lastUpdatedBy.value = data.lastUpdatedBy;
                     }
@@ -626,7 +732,8 @@
                         lastUpdatedBy: currentUser.value,
                         schedule: schedule.value,
                         expenses: expenses.value,
-                        members: members.value
+                        members: members.value,
+                        settlementsPaid: settlementsPaid.value
                     };
                     // Optimistic update locally
                     lastUpdated.value = now;
@@ -678,11 +785,37 @@
                     const colors = { '餐飲': '#f97316', '交通': '#3b82f6', '住宿': '#8b5cf6', '購物': '#10b981', '門票': '#f43f5e', '其他': '#64748b' };
                     return Object.keys(stats).map(key => ({ name: key, percent: (stats[key]/totalExpense.value)*100, color: colors[key]||'#ccc' })).sort((a,b)=>b.percent-a.percent);
                 });
+                
+                // 新增：每人支出統計
+                const memberBalances = computed(() => {
+                    const colors = ['#f43f5e', '#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#06b6d4'];
+                    const bal = {};
+                    members.value.forEach((m, idx) => bal[m] = { name: m, amount: 0, color: colors[idx % colors.length] });
+                    
+                    expenses.value.forEach(e => {
+                        if (bal[e.payer]) {
+                            bal[e.payer].amount += Number(e.amount);
+                        }
+                    });
+                    
+                    return Object.values(bal);
+                });
+                
+                // 新增：是否有已付款項目
+                const hasSettlementsPaid = computed(() => {
+                    return Object.keys(settlementsPaid.value).length > 0;
+                });
 
+                // 修改：結算建議，加入已付款狀態
                 const settlements = computed(() => {
                     if(!expenses.value.length) return [];
                     const bal = {}; members.value.forEach(m => bal[m] = 0);
-                    expenses.value.forEach(e => { if(bal[e.payer] !== undefined) bal[e.payer] += Number(e.amount); });
+                    
+                    // 計算每人實際支出
+                    expenses.value.forEach(e => { 
+                        if(bal[e.payer] !== undefined) bal[e.payer] += Number(e.amount); 
+                    });
+                    
                     const diffs = members.value.map(m => ({ name: m, val: bal[m] - avgExpense.value })).sort((a,b) => a.val - b.val);
                     const res = [];
                     let i=0, j=diffs.length-1;
@@ -693,7 +826,15 @@
                         res.push({ from: diffs[i].name, to: diffs[j].name, amount: Math.round(amt) });
                         diffs[i].val += amt; diffs[j].val -= amt;
                     }
-                    return res;
+                    
+                    // 標記已付款狀態
+                    return res.map(s => {
+                        const key = `${s.from}-${s.to}-${s.amount}`;
+                        return {
+                            ...s,
+                            paid: !!settlementsPaid.value[key]
+                        };
+                    });
                 });
 
                 // --- UI Helpers ---
@@ -726,6 +867,49 @@
                      mapSelectedEvent.value = e; switchTab('map'); 
                      if(!e.lat) window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`, '_blank');
                 };
+                
+                // --- 分帳狀態追蹤函數 ---
+                const toggleSettlementPaid = (settlement) => {
+                    const key = `${settlement.from}-${settlement.to}-${settlement.amount}`;
+                    if (settlementsPaid.value[key]) {
+                        delete settlementsPaid.value[key];
+                    } else {
+                        settlementsPaid.value[key] = {
+                            from: settlement.from,
+                            to: settlement.to,
+                            amount: settlement.amount,
+                            paidAt: new Date().toISOString(),
+                            paidBy: currentUser.value
+                        };
+                    }
+                    saveData();
+                };
+                
+                const clearAllSettlementsPaid = () => {
+                    if (confirm('確定要清除所有已付款標記嗎？')) {
+                        settlementsPaid.value = {};
+                        saveData();
+                    }
+                };
+                
+                // --- 分攤方式函數 ---
+                const toggleParticipant = (member) => {
+                    const index = expenseForm.value.participants.indexOf(member);
+                    if (index === -1) {
+                        expenseForm.value.participants.push(member);
+                    } else {
+                        expenseForm.value.participants.splice(index, 1);
+                    }
+                };
+                
+                // 初始化自訂分攤
+                const initCustomSplits = () => {
+                    const splits = {};
+                    members.value.forEach(m => {
+                        splits[m] = 0;
+                    });
+                    expenseForm.value.customSplits = splits;
+                };
 
                 // --- CRUD ---
                 const saveIdentity = () => { if(tempIdentity.value) { currentUser.value = tempIdentity.value; localStorage.setItem('tokyo_user_identity', tempIdentity.value); showIdentityModal.value = false; } };
@@ -738,8 +922,34 @@
                     saveData(); showEventModal.value=false;
                 };
                 const deleteEvent = () => { if(confirm('刪除?')) { schedule.value = schedule.value.filter(e=>e.id!==eventForm.value.id); saveData(); showEventModal.value=false; } };
-                const openExpenseModal = () => { expenseForm.value={id:Date.now(), category:'餐飲', date: new Date().toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}), payer: members.value[0]}; showExpenseModal.value=true; };
-                const saveExpense = () => { if(!expenseForm.value.title) return; expenses.value.push({...expenseForm.value}); saveData(); showExpenseModal.value=false; };
+                const openExpenseModal = () => { 
+                    expenseForm.value={
+                        id:Date.now(), 
+                        category:'餐飲', 
+                        date: new Date().toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}), 
+                        payer: members.value[0],
+                        splitMethod: 'equal',
+                        participants: [...members.value], // 預設全員參與
+                        customSplits: {}
+                    };
+                    initCustomSplits();
+                    showExpenseModal.value=true; 
+                };
+                const saveExpense = () => { 
+                    if(!expenseForm.value.title) return;
+                    
+                    // 處理分攤邏輯
+                    const expense = {...expenseForm.value};
+                    
+                    // 清除不需要的屬性
+                    delete expense.splitMethod;
+                    delete expense.participants;
+                    delete expense.customSplits;
+                    
+                    expenses.value.push(expense); 
+                    saveData(); 
+                    showExpenseModal.value=false; 
+                };
                 const deleteExpense = (id) => { if(confirm('刪除?')) { expenses.value = expenses.value.filter(e=>e.id!==id); saveData(); } };
                 const addMember = () => { if(newMemberName.value && !members.value.includes(newMemberName.value)) { members.value.push(newMemberName.value); newMemberName.value=''; saveData(); } };
                 const removeMember = (i) => { if(confirm('移除?')) { members.value.splice(i,1); saveData(); } };
@@ -773,13 +983,15 @@
 
                 return {
                     currentTab, currentDayIndex, days, schedule, expenses, members, sortedExpenses, currentDayEvents,
-                    totalExpense, avgExpense, expenseStats, settlements, statusText, statusColorClass, lastUpdatedBy, formattedLastUpdate,
+                    totalExpense, avgExpense, expenseStats, memberBalances, settlements, hasSettlementsPaid,
+                    statusText, statusColorClass, lastUpdatedBy, formattedLastUpdate,
                     showEventModal, showExpenseModal, showMemberModal, showIdentityModal, showTokenModal, isEditing, eventForm, expenseForm, 
                     newMemberName, tempIdentity, tempToken, tempGistId, showTokenInput,
                     mapSelectedEvent, isInitialLoading, errorMessage, syncStatus, currentUser, isDarkMode, hasToken,
                     switchTab, openEventModal, editEvent, saveEvent, deleteEvent, openExpenseModal, saveExpense, deleteExpense,
                     addMember, removeMember, saveIdentity, saveToken, clearToken, forceSync, openMap, formatTime, formatNumber, 
-                    getCategoryColor, getCategoryIcon, toggleDarkMode
+                    getCategoryColor, getCategoryIcon, toggleDarkMode,
+                    toggleSettlementPaid, clearAllSettlementsPaid, toggleParticipant
                 };
             }
         }).mount('#app');
