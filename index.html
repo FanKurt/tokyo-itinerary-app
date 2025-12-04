@@ -87,8 +87,8 @@
                     </div>
                 </div>
                 
-                <!-- Right side buttons -->
-                <div class="flex items-center gap-2">
+                <!-- Right side buttons - 優化高度一致 -->
+                <div class="flex items-center gap-1.5">
                     <!-- Dark mode toggle -->
                     <button @click="toggleDarkMode" class="w-8 h-8 flex items-center justify-center bg-white/20 rounded-lg backdrop-blur-sm hover:bg-white/30 transition">
                         <i class="fa-solid fa-moon text-white text-sm" v-if="!isDarkMode"></i>
@@ -96,8 +96,9 @@
                     </button>
                     
                     <!-- Identify User -->
-                    <button @click="showIdentityModal = true" class="bg-white/20 px-2 py-1 rounded text-xs backdrop-blur-sm flex items-center gap-1 hover:bg-white/30 transition">
-                        <i class="fa-solid fa-user-circle"></i> {{ currentUser }}
+                    <button @click="handleIdentityClick" class="h-8 px-3 bg-white/20 rounded-lg backdrop-blur-sm flex items-center gap-1.5 hover:bg-white/30 transition text-xs min-w-[70px] justify-center">
+                        <i class="fa-solid fa-user-circle text-sm"></i> 
+                        <span class="truncate max-w-[50px]">{{ currentUser }}</span>
                     </button>
                     
                     <!-- Token Settings -->
@@ -191,10 +192,10 @@
                                     {{ event.note }}
                                 </div>
                                 <div class="flex gap-2 mt-2 pt-2 border-t border-gray-50 dark:border-slate-700" @click.stop>
-                                    <button @click="openMap(event)" class="flex-1 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 transition flex items-center justify-center gap-1">
+                                    <button @click="openMap(event)" class="flex-1 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 transition flex items-center justify-center gap-1">
                                         <i class="fa-solid fa-location-arrow"></i> 導航
                                     </button>
-                                    <button @click="editEvent(event)" class="w-10 py-2 rounded-lg bg-gray-50 dark:bg-slate-700 text-gray-400 hover:bg-gray-100 transition">
+                                    <button @click="editEvent(event)" class="w-10 h-10 rounded-lg bg-gray-50 dark:bg-slate-700 text-gray-400 hover:bg-gray-100 transition flex items-center justify-center">
                                         <i class="fa-solid fa-pen"></i>
                                     </button>
                                 </div>
@@ -263,7 +264,8 @@
                     <div class="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
                         <div class="flex justify-between items-center mb-2">
                             <p class="text-[10px] text-emerald-400 font-bold">結算建議</p>
-                            <button @click="clearAllSettlementsPaid" v-if="hasSettlementsPaid" class="text-[10px] text-slate-400 hover:text-slate-300">
+                            <button @click="clearAllSettlementsPaid" v-if="hasSettlementsPaid" 
+                                    class="text-[10px] text-slate-400 hover:text-slate-300 px-2 py-1 rounded hover:bg-white/5 transition-colors">
                                 <i class="fa-solid fa-rotate-right mr-1"></i>重置
                             </button>
                         </div>
@@ -310,24 +312,26 @@
             </div>
 
             <!-- 3. Map Tab -->
-            <div v-show="currentTab === 'map'" class="h-full w-full relative">
-                <div id="mapContainer" class="w-full h-full bg-slate-100 dark:bg-slate-800 z-0"></div>
-                <div class="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur p-2 rounded-lg shadow-lg z-[400] text-[10px] flex flex-col gap-1">
-                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-rose-500"></div>景點</div>
-                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-orange-500"></div>美食</div>
-                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-blue-500"></div>交通</div>
-                </div>
-                <!-- Map Card -->
-                <div v-if="mapSelectedEvent" class="absolute bottom-24 left-4 right-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl z-[500] border border-gray-100 dark:border-slate-700 animate-slide-up">
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-bold text-lg text-gray-800 dark:text-white">{{ mapSelectedEvent.title }}</h3>
-                        <button @click="mapSelectedEvent = null" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-4">{{ mapSelectedEvent.location }}</p>
-                    <a :href="`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapSelectedEvent.location)}`" target="_blank"
-                       class="block w-full text-center bg-tokyo-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg">開啟 Google Maps</a>
-                </div>
-            </div>
+			<div v-show="currentTab === 'map'" class="h-full w-full relative">
+				<div id="mapContainer" class="w-full h-full bg-slate-100 dark:bg-slate-800 z-0"></div>
+				<div class="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur p-2 rounded-lg shadow-lg z-[400] text-[10px] flex flex-col gap-1">
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-rose-500"></div>景點</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-orange-500"></div>美食</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-blue-500"></div>交通</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-purple-500"></div>住宿</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div>購物</div>
+				</div>
+				<!-- Map Card -->
+				<div v-if="mapSelectedEvent" class="absolute bottom-24 left-4 right-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl z-[500] border border-gray-100 dark:border-slate-700 animate-slide-up">
+					<div class="flex justify-between items-start mb-2">
+						<h3 class="font-bold text-lg text-gray-800 dark:text-white">{{ mapSelectedEvent.title }}</h3>
+						<button @click="mapSelectedEvent = null" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+					</div>
+					<p class="text-xs text-gray-500 mb-4">{{ mapSelectedEvent.location }}</p>
+					<a :href="`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapSelectedEvent.location)}`" target="_blank"
+					   class="block w-full text-center bg-tokyo-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg">開啟 Google Maps</a>
+				</div>
+			</div>
         </main>
 
         <!-- Bottom Nav -->
@@ -440,7 +444,7 @@
                         <div class="flex flex-wrap gap-2 mb-3">
                             <button v-for="amt in [500, 1000, 2000, 5000, 10000, 20000]" 
                                     @click="expenseForm.amount = amt"
-                                    class="quick-amount-btn px-3 py-1.5 bg-gray-100 dark:bg-slate-700 rounded-lg text-sm font-mono">
+                                    class="quick-amount-btn px-3 py-2 bg-gray-100 dark:bg-slate-700 rounded-lg text-sm font-mono hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
                                 ¥{{ amt.toLocaleString() }}
                             </button>
                         </div>
@@ -484,6 +488,7 @@
                                 </button>
                             </div>
                         </div>
+                        
                     </div>
                     
                     <div>
@@ -522,6 +527,29 @@
                     <button @click="addMember" class="px-5 bg-slate-800 text-white rounded-xl font-bold">新增</button>
                 </div>
                 <button @click="showMemberModal = false" class="w-full mt-4 py-3 bg-gray-100 dark:bg-slate-800 text-gray-500 font-bold rounded-xl">完成</button>
+            </div>
+        </div>
+
+        <!-- 新增：確認身分變更模態窗 -->
+        <div v-if="showIdentityConfirmModal" class="absolute inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+                <div class="text-center mb-6">
+                    <i class="fa-solid fa-user-edit text-4xl text-tokyo-600 mb-2"></i>
+                    <h3 class="text-xl font-bold">變更身分</h3>
+                    <p class="text-xs text-gray-500">您目前的身分是 <span class="font-bold text-tokyo-600">{{ currentUser }}</span></p>
+                </div>
+                <div class="space-y-4">
+                    <input v-model="tempIdentity" @keyup.enter="saveIdentity" placeholder="輸入新的暱稱" class="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-xl text-center font-bold text-lg border-2 border-transparent focus:border-tokyo-500 outline-none dark:text-white">
+                    <p class="text-xs text-gray-500 text-center">這會顯示在最後編輯者資訊中</p>
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button @click="cancelIdentityChange" class="flex-1 px-5 py-3 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold">
+                        取消
+                    </button>
+                    <button @click="saveIdentity" :disabled="!tempIdentity" class="flex-1 bg-tokyo-600 text-white rounded-xl font-bold py-3 disabled:opacity-50">
+                        確認變更
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -582,6 +610,7 @@
                 const showExpenseModal = ref(false);
                 const showMemberModal = ref(false);
                 const showIdentityModal = ref(!localStorage.getItem('tokyo_user_identity'));
+                const showIdentityConfirmModal = ref(false); // 新增：身分確認模態窗
                 const isEditing = ref(false);
                 const eventForm = ref({});
                 const expenseForm = ref({ 
@@ -600,6 +629,41 @@
                 const mapInstance = ref(null);
                 const mapMarkers = ref([]);
                 const mapSelectedEvent = ref(null);
+
+                // --- 身分管理函數 ---
+                const handleIdentityClick = () => {
+                    if (currentUser.value === '訪客' || !localStorage.getItem('tokyo_user_identity')) {
+                        // 如果沒有設定過身分，直接打開設定視窗
+                        showIdentityModal.value = true;
+                        tempIdentity.value = '';
+                    } else {
+                        // 如果已經有身分，打開確認/修改視窗
+                        tempIdentity.value = currentUser.value;
+                        showIdentityConfirmModal.value = true;
+                    }
+                };
+                
+                const saveIdentity = () => {
+                    if (tempIdentity.value.trim()) {
+                        currentUser.value = tempIdentity.value.trim();
+                        localStorage.setItem('tokyo_user_identity', currentUser.value);
+                        
+                        // 關閉模態窗
+                        showIdentityModal.value = false;
+                        showIdentityConfirmModal.value = false;
+                        tempIdentity.value = '';
+                        
+                        // 如果有 token，更新資料以反映新的編輯者
+                        if (hasToken.value) {
+                            saveData();
+                        }
+                    }
+                };
+                
+                const cancelIdentityChange = () => {
+                    showIdentityConfirmModal.value = false;
+                    tempIdentity.value = '';
+                };
 
                 // --- Token Functions ---
                 const saveToken = () => {
@@ -912,7 +976,6 @@
                 };
 
                 // --- CRUD ---
-                const saveIdentity = () => { if(tempIdentity.value) { currentUser.value = tempIdentity.value; localStorage.setItem('tokyo_user_identity', tempIdentity.value); showIdentityModal.value = false; } };
                 const openEventModal = () => { eventForm.value = {id:Date.now(), dayIdx: currentDayIndex.value, time:'10:00', category:'景點'}; isEditing.value=false; showEventModal.value=true; };
                 const editEvent = (e) => { eventForm.value = {...e}; isEditing.value=true; showEventModal.value=true; };
                 const saveEvent = () => { 
@@ -985,11 +1048,11 @@
                     currentTab, currentDayIndex, days, schedule, expenses, members, sortedExpenses, currentDayEvents,
                     totalExpense, avgExpense, expenseStats, memberBalances, settlements, hasSettlementsPaid,
                     statusText, statusColorClass, lastUpdatedBy, formattedLastUpdate,
-                    showEventModal, showExpenseModal, showMemberModal, showIdentityModal, showTokenModal, isEditing, eventForm, expenseForm, 
+                    showEventModal, showExpenseModal, showMemberModal, showIdentityModal, showIdentityConfirmModal, showTokenModal, isEditing, eventForm, expenseForm, 
                     newMemberName, tempIdentity, tempToken, tempGistId, showTokenInput,
                     mapSelectedEvent, isInitialLoading, errorMessage, syncStatus, currentUser, isDarkMode, hasToken,
                     switchTab, openEventModal, editEvent, saveEvent, deleteEvent, openExpenseModal, saveExpense, deleteExpense,
-                    addMember, removeMember, saveIdentity, saveToken, clearToken, forceSync, openMap, formatTime, formatNumber, 
+                    addMember, removeMember, saveIdentity, cancelIdentityChange, handleIdentityClick, saveToken, clearToken, forceSync, openMap, formatTime, formatNumber, 
                     getCategoryColor, getCategoryIcon, toggleDarkMode,
                     toggleSettlementPaid, clearAllSettlementsPaid, toggleParticipant
                 };
