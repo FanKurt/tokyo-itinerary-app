@@ -44,7 +44,6 @@
         .marker-pin { width: 30px; height: 30px; border-radius: 50% 50% 50% 0; background: #e11d48; position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
         .marker-pin::after { content: ''; width: 14px; height: 14px; margin: 8px 0 0 8px; background: #fff; position: absolute; border-radius: 50%; }
         .marker-icon { position: absolute; width: 22px; font-size: 16px; left: 0; right: 0; margin: 6px auto; text-align: center; color: white; z-index: 10; transform: rotate(45deg); }
-        .marker-景點 { background: #f43f5e; } .marker-美食 { background: #f97316; } .marker-交通 { background: #3b82f6; } .marker-住宿 { background: #8b5cf6; } .marker-購物 { background: #10b981; }
 
         /* Sync Status Animation */
         @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
@@ -103,6 +102,16 @@
 		
 		.dark .leaflet-container {
 			background: #1e293b !important;
+		}
+		
+		/* 修復標記在縮放時不更新的問題 */
+		.leaflet-zoom-animated {
+			will-change: transform;
+		}
+		
+		/* 確保標記容器可以縮放 */
+		.leaflet-marker-icon {
+			transition: transform 0.3s ease;
 		}
     </style>
 </head>
@@ -357,12 +366,13 @@
 				
 				<div id="mapContainer" style="width: 100%; height: 100%;"></div>
 				
+				<!-- 圖例 - 修改為使用內聯樣式確保顏色一致 -->
 				<div class="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur p-2 rounded-lg shadow-lg z-[400] text-[10px] flex flex-col gap-1">
-					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-rose-500"></div>景點</div>
-					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-orange-500"></div>美食</div>
-					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-blue-500"></div>交通</div>
-					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-purple-500"></div>住宿</div>
-					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div>購物</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full" style="background-color: #f43f5e"></div>景點</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full" style="background-color: #f97316"></div>美食</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full" style="background-color: #3b82f6"></div>交通</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full" style="background-color: #8b5cf6"></div>住宿</div>
+					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full" style="background-color: #10b981"></div>購物</div>
 				</div>
 				
 				<!-- Map Card -->
@@ -665,6 +675,16 @@
 				const mapLoading = ref(false);
 				// 在 setup 中新增一個 ref 來儲存跳動的標記 ID
 				const bouncingMarkerId = ref(null);
+                
+                // 定義統一的顏色映射 - 使用方案三
+                const categoryColorMap = {
+                    '景點': '#f43f5e',  // rose-500
+                    '美食': '#f97316',  // orange-500
+                    '交通': '#3b82f6',  // blue-500
+                    '住宿': '#8b5cf6',  // purple-500
+                    '購物': '#10b981'   // emerald-500
+                };
+                
                 // --- Sync State ---
                 const syncStatus = ref('idle'); // idle, syncing, error, offline
                 const lastUpdated = ref(null);
@@ -733,6 +753,8 @@
 				const mapZoom = ref(11);
 				// 新增：防止地圖重複初始化的標誌
 				const mapInitialized = ref(false);
+				// 新增：追蹤地圖縮放狀態
+				const isMapZooming = ref(false);
 
                 // --- 身分管理函數 ---
                 const handleIdentityClick = () => {
@@ -1087,7 +1109,16 @@
 				// --- UI Helpers ---
                 const formatTime = (t) => t;
                 const formatNumber = (n) => n.toLocaleString();
-                const getCategoryColor = (c, bg) => { const map = {'景點':'rose-500','美食':'orange-500','交通':'blue-500','住宿':'purple-500','購物':'emerald-500'}; return bg ? `bg-${map[c]||'gray-400'}` : `text-${map[c]||'gray-400'}`; };
+                const getCategoryColor = (c, bg) => { 
+                    const map = {
+                        '景點':'rose-500',
+                        '美食':'orange-500',
+                        '交通':'blue-500',
+                        '住宿':'purple-500',
+                        '購物':'emerald-500'
+                    }; 
+                    return bg ? `bg-${map[c]||'gray-400'}` : `text-${map[c]||'gray-400'}`; 
+                };
                 const getCategoryIcon = (c) => ({'景點':'fa-camera','美食':'fa-utensils','交通':'fa-train','住宿':'fa-bed','購物':'fa-bag-shopping'}[c]||'fa-star');
                 const switchTab = (t) => { 
 					currentTab.value = t; 
@@ -1099,7 +1130,7 @@
 						});
 					}
 				};
-					
+					    
                 // Map
 				const initMap = () => {
 					console.log('🗺️ Initializing map...');
@@ -1143,14 +1174,15 @@
 						const map = L.map('mapContainer', {
 							center: mapCenter.value,
 							zoom: mapZoom.value,
-							zoomControl: false,
+							zoomControl: true,
 							preferCanvas: true,
 							inertia: true,
 							inertiaDeceleration: 3000,
 							inertiaMaxSpeed: 1500,
 							easeLinearity: 0.2,
 							fadeAnimation: true,
-							markerZoomAnimation: true
+							markerZoomAnimation: true,
+							transform3DLimit: 0  // 確保標記可以縮放
 						});
 						
 						console.log('✅ Map instance created');
@@ -1173,6 +1205,24 @@
 							mapCenter.value = [center.lat, center.lng];
 							mapZoom.value = map.getZoom();
 						});
+						
+						// 新增：監聽縮放事件，確保標記更新
+						map.on('zoomstart', () => {
+							isMapZooming.value = true;
+						});
+						
+						map.on('zoomend', () => {
+							isMapZooming.value = false;
+							// 強制更新標記位置
+							updateMarkerPositions();
+						});
+						
+						// 新增：監聽縮放過程中的事件
+						map.on('zoom', () => {
+							if (mapInstance.value && !isMapZooming.value) {
+								isMapZooming.value = true;
+							}
+						});
 
 						// 添加防抖處理的視窗大小調整事件
 						let resizeTimeout;
@@ -1181,6 +1231,7 @@
 							resizeTimeout = setTimeout(() => {
 								if (map && !map._size) {
 									map.invalidateSize();
+									updateMarkerPositions();
 								}
 							}, 250);
 						};
@@ -1202,6 +1253,27 @@
 						errorMessage.value = '地圖初始化失敗: ' + error.message;
 					}
 				};
+				
+				// 新增：更新標記位置函數
+				const updateMarkerPositions = () => {
+					if (!mapInstance.value || !mapMarkers.value.length) return;
+					
+					console.log('📍 Updating marker positions...');
+					
+					// 重新設置每個標記的位置
+					mapMarkers.value.forEach((marker, index) => {
+						if (marker && marker.setLatLng && schedule.value[index]) {
+							const event = schedule.value[index];
+							if (event.lat && event.lng) {
+								marker.setLatLng([event.lat, event.lng]);
+							}
+						}
+					});
+					
+					// 強制重新繪製地圖
+					mapInstance.value._renderer._update();
+				};
+                
                 // 新增：重置地圖視圖
 				const resetMapView = () => {
 					if (mapInstance.value) {
@@ -1222,7 +1294,7 @@
 					}
 				};
 				
-                // 修改 updateMarkers 函數，添加跳動效果和錯誤處理
+                // 修改 updateMarkers 函數，使用統一的顏色映射和內聯樣式
 				const updateMarkers = () => {
 					console.log('📍 Updating markers...');
 					
@@ -1249,19 +1321,27 @@
 						// 檢查是否有有效的經緯度
 						if(e.lat && e.lng && !isNaN(e.lat) && !isNaN(e.lng)) {
 							try {
-								const categoryClass = getCategoryColor(e.category, true).replace('bg-', 'marker-');
+								// 使用統一的顏色映射獲取顏色
+								const markerColor = categoryColorMap[e.category] || '#ccc';
 								
+								// 創建自定義圖標 - 修復縮放問題
 								const icon = L.divIcon({
 									className: 'custom-div-icon',
 									html: `
-										<div class="marker-pin ${categoryClass} ${bouncingMarkerId.value === e.id ? 'marker-bounce marker-glow' : ''}"></div>
-										<i class="fa-solid ${getCategoryIcon(e.category)} marker-icon ${bouncingMarkerId.value === e.id ? 'text-yellow-300' : ''}"></i>
+										<div class="marker-pin ${bouncingMarkerId.value === e.id ? 'marker-bounce marker-glow' : ''}" 
+										     style="background-color: ${markerColor}; transform: rotate(-45deg);"></div>
+										<i class="fa-solid ${getCategoryIcon(e.category)} marker-icon ${bouncingMarkerId.value === e.id ? 'text-yellow-300' : ''}" style="transform: rotate(45deg);"></i>
 									`,
-									iconSize: [30,42],
-									iconAnchor: [15,42]
+									iconSize: [30, 42],
+									iconAnchor: [15, 42],
+									popupAnchor: [0, -36]
 								});
 								
-								const m = L.marker([e.lat, e.lng], {icon})
+								const m = L.marker([e.lat, e.lng], { 
+									icon: icon,
+									riseOnHover: true,
+									riseOffset: 250
+								})
 									.addTo(mapInstance.value)
 									.on('click', () => {
 										mapSelectedEvent.value = e;
@@ -1272,6 +1352,8 @@
 										bouncingMarkerId.value = e.id;
 										setTimeout(() => {
 											bouncingMarkerId.value = null;
+											// 更新標記以移除跳動效果
+											updateMarkers();
 										}, 3000);
 									});
 								
@@ -1300,7 +1382,15 @@
 					if (validMarkers === 0) {
 						console.log('ℹ️ No valid markers found. Add some events with locations!');
 					}
+					
+					// 確保標記更新完成後，地圖重新渲染
+					setTimeout(() => {
+						if (mapInstance.value) {
+							mapInstance.value._renderer._update();
+						}
+					}, 100);
 				};
+				
 				// 修改 openMap 函數 - 優化地圖跳轉和錯誤處理
 				const openMap = (e) => {
 					switchTab('map');
@@ -1333,6 +1423,7 @@
 									// 5秒後停止跳動
 									setTimeout(() => {
 										bouncingMarkerId.value = null;
+										updateMarkers();
 									}, 5000);
 									
 									// 3秒後清除高亮
@@ -1566,6 +1657,8 @@
 						if (currentTab.value === 'map' && mapInstance.value) {
 							try {
 								mapInstance.value.invalidateSize();
+								// 更新標記位置
+								updateMarkerPositions();
 							} catch (e) {
 								console.error('Error resizing map:', e);
 							}
@@ -1579,6 +1672,7 @@
 						setTimeout(() => {
 							try {
 								mapInstance.value.invalidateSize();
+								updateMarkerPositions();
 							} catch (e) {
 								console.error('Error invalidating map size:', e);
 							}
