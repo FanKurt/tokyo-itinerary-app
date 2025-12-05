@@ -1154,7 +1154,9 @@
 							mapCenter.value = [center.lat, center.lng];
 							mapZoom.value = map.getZoom();
 						});
-						
+
+
+												
 						// 延遲更新以確保地圖完全載入
 						setTimeout(() => {
 							console.log('🔧 Invalidating size and updating markers...');
@@ -1262,8 +1264,6 @@
 				};
 				// 修改 openMap 函數 - 優化地圖跳轉
 				const openMap = (e) => {
-					mapSelectedEvent.value = e;
-					highlightedLocation.value = e.location; // 儲存要高亮的地點
 					switchTab('map');
 					
 					if(!e.lat) {
@@ -1275,11 +1275,17 @@
 						// 等待地圖初始化完成
 						const waitForMap = () => {
 							if (mapInstance.value) {
-								// 平滑移動到標記位置
+								// 先開始飛行動畫
 								mapInstance.value.flyTo([e.lat, e.lng], 14, {
 									duration: 1.2,
 									easeLinearity: 0.25
 								});
+								
+								// 延遲顯示提示字和選中事件，等待飛行動畫開始
+								setTimeout(() => {
+									mapSelectedEvent.value = e;
+									highlightedLocation.value = e.location;
+								}, 200); // 飛行動畫進行到一半時才顯示
 								
 								// 更新標記
 								updateMarkers();
@@ -1288,6 +1294,11 @@
 								setTimeout(() => {
 									bouncingMarkerId.value = null;
 								}, 5000);
+								
+								// 3秒後清除高亮
+								setTimeout(() => {
+									highlightedLocation.value = null;
+								}, 3600); // 從顯示開始算3秒
 							} else {
 								// 如果地圖還沒準備好，延遲重試
 								setTimeout(waitForMap, 100);
@@ -1297,13 +1308,7 @@
 						// 啟動等待
 						waitForMap();
 					}
-					
-					// 3秒後清除高亮
-					setTimeout(() => {
-						highlightedLocation.value = null;
-					}, 3000);
 				};
-                
                 // --- 分帳狀態追蹤函數 ---
                 const toggleSettlementPaid = (settlement) => {
                     const key = `${settlement.from}-${settlement.to}-${settlement.amount}`;
