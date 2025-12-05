@@ -95,6 +95,15 @@
 		.map-loading {
 			opacity: 0.5;
 		}
+		
+		/* 修復地圖容器 */
+		.leaflet-container {
+			background: #e0e7ff !important;
+		}
+		
+		.dark .leaflet-container {
+			background: #1e293b !important;
+		}
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen w-screen overflow-hidden">
@@ -355,8 +364,6 @@
 					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-purple-500"></div>住宿</div>
 					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div>購物</div>
 				</div>
-				
-
 				
 				<!-- Map Card -->
 				<div v-if="mapSelectedEvent" class="absolute bottom-28 left-4 right-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl z-[500] border border-gray-100 dark:border-slate-700 animate-slide-up max-h-48 overflow-y-auto">
@@ -724,6 +731,8 @@
 				// 新增：地圖中心點記憶
 				const mapCenter = ref([35.6895, 139.6917]);
 				const mapZoom = ref(11);
+				// 新增：防止地圖重複初始化的標誌
+				const mapInitialized = ref(false);
 
                 // --- 身分管理函數 ---
                 const handleIdentityClick = () => {
@@ -1086,10 +1095,6 @@
 						nextTick(() => {
 							setTimeout(() => {
 								initMap();
-								// 再次調整大小以確保正確顯示
-								if (mapInstance.value) {
-									mapInstance.value.invalidateSize();
-								}
 							}, 100);
 						});
 					}
@@ -1109,7 +1114,7 @@
 					console.log('✅ Map container found:', container);
 
 					// 如果地圖已經初始化，只調整大小
-					if(mapInstance.value) { 
+					if(mapInstance.value && mapInitialized.value) { 
 						console.log('🔄 Map already exists, resizing...');
 						setTimeout(() => {
 							mapInstance.value.invalidateSize();
@@ -1127,12 +1132,25 @@
 						// 確保容器有高度
 						container.style.height = '100%';
 						
-						// 創建地圖實例
+						// 如果已有地圖實例，先移除
+						if(mapInstance.value && !mapInitialized.value) {
+							mapInstance.value.remove();
+							mapInstance.value = null;
+							mapMarkers.value = [];
+						}
+						
+						// 創建地圖實例 - 修復：添加更穩定的配置
 						const map = L.map('mapContainer', {
 							center: mapCenter.value,
 							zoom: mapZoom.value,
 							zoomControl: false,
-							preferCanvas: true
+							preferCanvas: true,
+							inertia: true,
+							inertiaDeceleration: 3000,
+							inertiaMaxSpeed: 1500,
+							easeLinearity: 0.2,
+							fadeAnimation: true,
+							markerZoomAnimation: true
 						});
 						
 						console.log('✅ Map instance created');
@@ -1147,16 +1165,28 @@
 						console.log('✅ Tile layer added');
 						
 						mapInstance.value = map;
+						mapInitialized.value = true;
 						
-						// 監聽地圖事件
+						// 監聽地圖事件 - 修復：使用更穩定的事件處理
 						map.on('moveend', () => {
 							const center = map.getCenter();
 							mapCenter.value = [center.lat, center.lng];
 							mapZoom.value = map.getZoom();
 						});
 
-
-												
+						// 添加防抖處理的視窗大小調整事件
+						let resizeTimeout;
+						const handleResize = () => {
+							clearTimeout(resizeTimeout);
+							resizeTimeout = setTimeout(() => {
+								if (map && !map._size) {
+									map.invalidateSize();
+								}
+							}, 250);
+						};
+						
+						window.addEventListener('resize', handleResize);
+						
 						// 延遲更新以確保地圖完全載入
 						setTimeout(() => {
 							console.log('🔧 Invalidating size and updating markers...');
@@ -1192,7 +1222,7 @@
 					}
 				};
 				
-                // 修改 updateMarkers 函數，添加跳動效果
+                // 修改 updateMarkers 函數，添加跳動效果和錯誤處理
 				const updateMarkers = () => {
 					console.log('📍 Updating markers...');
 					
@@ -1204,7 +1234,9 @@
 					// 清除舊標記
 					mapMarkers.value.forEach(m => {
 						try {
-							m.remove();
+							if (m && m.remove) {
+								m.remove();
+							}
 						} catch (e) {
 							console.error('Error removing marker:', e);
 						}
@@ -1244,7 +1276,14 @@
 									});
 								
 								if (bouncingMarkerId.value === e.id) {
-									m.bindPopup(`<div class="font-bold">${e.title}</div><div class="text-xs text-gray-600">${e.location}</div>`).openPopup();
+									// 使用延遲以確保地圖已完全加載
+									setTimeout(() => {
+										try {
+											m.bindPopup(`<div class="font-bold">${e.title}</div><div class="text-xs text-gray-600">${e.location}</div>`).openPopup();
+										} catch (popupError) {
+											console.error('Error opening popup:', popupError);
+										}
+									}, 100);
 								}
 								
 								mapMarkers.value.push(m);
@@ -1262,7 +1301,7 @@
 						console.log('ℹ️ No valid markers found. Add some events with locations!');
 					}
 				};
-				// 修改 openMap 函數 - 優化地圖跳轉
+				// 修改 openMap 函數 - 優化地圖跳轉和錯誤處理
 				const openMap = (e) => {
 					switchTab('map');
 					
@@ -1275,33 +1314,52 @@
 						// 等待地圖初始化完成
 						const waitForMap = () => {
 							if (mapInstance.value) {
-								// 先開始飛行動畫
-								mapInstance.value.flyTo([e.lat, e.lng], 14, {
-									duration: 1.2,
-									easeLinearity: 0.25
-								});
-								
-								// 延遲顯示提示字和選中事件，等待飛行動畫開始
-								setTimeout(() => {
-									mapSelectedEvent.value = e;
-									highlightedLocation.value = e.location;
-								}, 200); // 飛行動畫進行到一半時才顯示
-								
-								// 更新標記
-								updateMarkers();
-								
-								// 5秒後停止跳動
-								setTimeout(() => {
-									bouncingMarkerId.value = null;
-								}, 5000);
-								
-								// 3秒後清除高亮
-								setTimeout(() => {
-									highlightedLocation.value = null;
-								}, 3600); // 從顯示開始算3秒
+								try {
+									// 先開始飛行動畫
+									mapInstance.value.flyTo([e.lat, e.lng], 14, {
+										duration: 1.2,
+										easeLinearity: 0.25
+									});
+									
+									// 延遲顯示提示字和選中事件，等待飛行動畫開始
+									setTimeout(() => {
+										mapSelectedEvent.value = e;
+										highlightedLocation.value = e.location;
+									}, 200); // 飛行動畫進行到一半時才顯示
+									
+									// 更新標記
+									updateMarkers();
+									
+									// 5秒後停止跳動
+									setTimeout(() => {
+										bouncingMarkerId.value = null;
+									}, 5000);
+									
+									// 3秒後清除高亮
+									setTimeout(() => {
+										highlightedLocation.value = null;
+									}, 3600); // 從顯示開始算3秒
+								} catch (mapError) {
+									console.error('Error during map navigation:', mapError);
+									// 備用方案：直接開啟 Google Maps
+									window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`, '_blank');
+								}
 							} else {
-								// 如果地圖還沒準備好，延遲重試
-								setTimeout(waitForMap, 100);
+								// 如果地圖還沒準備好，延遲重試（最多重試5次）
+								const maxRetries = 5;
+								let retryCount = 0;
+								
+								const retry = () => {
+									if (retryCount < maxRetries) {
+										retryCount++;
+										setTimeout(waitForMap, 300);
+									} else {
+										// 如果地圖加載失敗，使用 Google Maps 作為備用
+										window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`, '_blank');
+									}
+								};
+								
+								retry();
 							}
 						};
 						
@@ -1500,12 +1558,31 @@
 					}
 				});
 				
-				// 監聽窗口大小變化，重新調整地圖大小
+				// 監聽窗口大小變化，重新調整地圖大小（使用防抖）
+				let resizeTimer;
 				window.addEventListener('resize', () => {
-					if (currentTab.value === 'map' && mapInstance.value) {
+					clearTimeout(resizeTimer);
+					resizeTimer = setTimeout(() => {
+						if (currentTab.value === 'map' && mapInstance.value) {
+							try {
+								mapInstance.value.invalidateSize();
+							} catch (e) {
+								console.error('Error resizing map:', e);
+							}
+						}
+					}, 250);
+				});
+				
+				// 監聽頁面可見性變化，修復地圖顯示問題
+				document.addEventListener('visibilitychange', () => {
+					if (!document.hidden && currentTab.value === 'map' && mapInstance.value) {
 						setTimeout(() => {
-							mapInstance.value.invalidateSize();
-						}, 200);
+							try {
+								mapInstance.value.invalidateSize();
+							} catch (e) {
+								console.error('Error invalidating map size:', e);
+							}
+						}, 300);
 					}
 				});
 				
