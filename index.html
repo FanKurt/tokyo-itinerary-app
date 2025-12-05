@@ -66,6 +66,35 @@
         /* 快速金額按鈕 */
         .quick-amount-btn { transition: all 0.2s ease; }
         .quick-amount-btn:active { transform: scale(0.95); }
+		/* 跳動動畫 */
+		@keyframes bounce {
+			0%, 100% { transform: translateY(0) scale(1); }
+			50% { transform: translateY(-12px) scale(1.15); }
+		}
+
+		.marker-bounce {
+			animation: bounce 0.6s ease-in-out 4;
+		}
+
+		/* 脈衝光暈效果 */
+		@keyframes pulse-glow {
+			0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+			70% { box-shadow: 0 0 0 12px rgba(255, 215, 0, 0); }
+			100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+		}
+
+		.marker-glow {
+			animation: pulse-glow 1.5s infinite;
+		}
+		
+		/* 地圖容器優化 */
+		#mapContainer {
+			transition: opacity 0.3s ease;
+		}
+		
+		.map-loading {
+			opacity: 0.5;
+		}
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen w-screen overflow-hidden">
@@ -138,7 +167,7 @@
             </div>
 
             <!-- 1. Schedule Tab -->
-            <div v-show="currentTab === 'schedule'" class="pb-24 animate-fade-in">
+			<div v-show="currentTab === 'schedule'" class="pb-24 animate-fade-in overflow-y-auto h-full">
                 <!-- Date Selector -->
                 <div class="sticky top-0 z-20 bg-gray-50/95 dark:bg-slate-900/95 backdrop-blur border-b border-gray-200 dark:border-slate-800 px-2 py-3 flex gap-2 overflow-x-auto no-scrollbar shadow-sm">
                     <button v-for="(day, index) in days" :key="index"
@@ -206,7 +235,7 @@
             </div>
 
             <!-- 2. Expense Tab -->
-            <div v-show="currentTab === 'expense'" class="pb-24 animate-fade-in">
+			<div v-show="currentTab === 'expense'" class="pb-24 animate-fade-in overflow-y-auto h-full">
                  <div class="px-4 mt-4 flex justify-end gap-2">
                     <button @click="showMemberModal = true" class="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-full text-sm font-bold">
                         <i class="fa-solid fa-users"></i> 成員
@@ -223,10 +252,6 @@
                             <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">總支出</p>
                             <h2 class="text-3xl font-bold font-mono">¥ {{ formatNumber(totalExpense) }}</h2>
                         </div>
-                        <div class="text-right">
-                            <p class="text-slate-400 text-[10px] uppercase">每人均攤</p>
-                            <p class="text-lg font-bold font-mono text-emerald-400">¥ {{ formatNumber(Math.round(avgExpense)) }}</p>
-                        </div>
                     </div>
                     <!-- Stats Bar -->
                     <div class="flex h-3 rounded-full overflow-hidden bg-slate-700 w-full mb-4">
@@ -235,15 +260,15 @@
                     
                     <!-- 視覺化圖表區域 -->
                     <div class="grid grid-cols-2 gap-3 mb-4">
-                        <!-- 每人支出比例 -->
-                        <div class="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
-                            <p class="text-[10px] text-slate-300 font-bold mb-2">每人支出</p>
-                            <div v-for="member in memberBalances" :key="member.name" class="flex items-center mb-1.5">
-                                <div class="w-2 h-2 rounded-full mr-2" :style="{backgroundColor: member.color}"></div>
-                                <span class="text-xs flex-1 truncate">{{ member.name }}</span>
-                                <span class="text-xs font-mono">¥{{ formatNumber(member.amount) }}</span>
-                            </div>
-                        </div>
+                        <!-- 每人支出比例圖表 -->
+						<div class="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+							<p class="text-[10px] text-slate-300 font-bold mb-2">每人應付金額</p>
+							<div v-for="member in memberBalances" :key="member.name" class="flex items-center mb-1.5">
+								<div class="w-2 h-2 rounded-full mr-2" :style="{backgroundColor: member.color}"></div>
+								<span class="text-xs flex-1 truncate">{{ member.name }}</span>
+								<span class="text-xs font-mono">¥{{ formatNumber(Math.round(member.share)) }}</span>
+							</div>
+						</div>
                         
                         <!-- 分類支出長條圖 -->
                         <div class="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
@@ -312,8 +337,17 @@
             </div>
 
             <!-- 3. Map Tab -->
-			<div v-show="currentTab === 'map'" class="h-full w-full relative">
-				<div id="mapContainer" class="w-full h-full bg-slate-100 dark:bg-slate-800 z-0"></div>
+			<div v-show="currentTab === 'map'" class="absolute inset-0 pb-24">
+				<!-- 地圖載入狀態 -->
+				<div v-if="mapLoading" class="absolute inset-0 z-10 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+					<div class="text-center">
+						<i class="fa-solid fa-compass fa-spin text-4xl text-tokyo-600 mb-2"></i>
+						<p class="text-sm text-gray-600 dark:text-gray-300">載入地圖中...</p>
+					</div>
+				</div>
+				
+				<div id="mapContainer" style="width: 100%; height: 100%;"></div>
+				
 				<div class="absolute top-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur p-2 rounded-lg shadow-lg z-[400] text-[10px] flex flex-col gap-1">
 					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-rose-500"></div>景點</div>
 					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-orange-500"></div>美食</div>
@@ -321,18 +355,28 @@
 					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-purple-500"></div>住宿</div>
 					<div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div>購物</div>
 				</div>
+				
+
+				
 				<!-- Map Card -->
-				<div v-if="mapSelectedEvent" class="absolute bottom-24 left-4 right-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl z-[500] border border-gray-100 dark:border-slate-700 animate-slide-up">
+				<div v-if="mapSelectedEvent" class="absolute bottom-28 left-4 right-4 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-2xl z-[500] border border-gray-100 dark:border-slate-700 animate-slide-up max-h-48 overflow-y-auto">
 					<div class="flex justify-between items-start mb-2">
 						<h3 class="font-bold text-lg text-gray-800 dark:text-white">{{ mapSelectedEvent.title }}</h3>
-						<button @click="mapSelectedEvent = null" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+						<button @click="mapSelectedEvent = null" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-xmark"></i></button>
 					</div>
 					<p class="text-xs text-gray-500 mb-4">{{ mapSelectedEvent.location }}</p>
 					<a :href="`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapSelectedEvent.location)}`" target="_blank"
 					   class="block w-full text-center bg-tokyo-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg">開啟 Google Maps</a>
 				</div>
+				
+				<!-- 地圖控制按鈕 -->
+				<div class="absolute bottom-28 right-4 z-[450] flex flex-col gap-2">
+					<button @click="resetMapView" class="w-10 h-10 bg-white dark:bg-slate-800 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+						<i class="fa-solid fa-earth-asia text-gray-600 dark:text-gray-300"></i>
+					</button>
+				</div>
 			</div>
-        </main>
+		</main>
 
         <!-- Bottom Nav -->
         <nav class="bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 flex justify-around items-center h-[85px] pb-5 px-2 safe-bottom z-30 absolute bottom-0 w-full shadow-lg">
@@ -435,6 +479,11 @@
         <div v-if="showExpenseModal" class="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center" @click.self="showExpenseModal = false">
             <div class="bg-white dark:bg-slate-900 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-slide-up">
                 <h3 class="text-xl font-bold mb-4 text-gray-800 dark:text-white">新增支出</h3>
+				<!-- 👈 在這裡加入錯誤訊息顯示 -->
+				<div v-if="errorMessage" class="bg-red-500 text-white text-sm p-3 rounded-lg mb-4 flex items-center gap-2 animate-slide-up">
+					<i class="fa-solid fa-triangle-exclamation"></i>
+					<span>{{ errorMessage }}</span>
+				</div>
                 <div class="space-y-4">
                     <input v-model="expenseForm.title" placeholder="項目" class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 font-bold dark:text-white">
                     
@@ -530,24 +579,62 @@
             </div>
         </div>
 
-		<!-- 修正後完整的變更身分模態窗 -->
-		<div v-if="showIdentityConfirmModal" class="absolute inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+		<!-- 身分確認模態窗 - 修正版，確保 currentUser 有值 -->
+		<div v-if="showIdentityConfirmModal && currentUser" class="absolute inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
 			<div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl">
 				<div class="text-center mb-6">
-					<i class="fa-solid fa-user-edit text-4xl text-tokyo-600 mb-2"></i>
-					<h3 class="text-xl font-bold">變更身分</h3>
-					<p class="text-xs text-gray-500">您目前的身分是 <span class="font-bold text-tokyo-600">{{ currentUser }}</span></p>
+					<!-- 根據情境顯示不同圖標 -->
+					<i v-if="currentUser === '訪客'" class="fa-solid fa-user-plus text-4xl text-tokyo-600 mb-2"></i>
+					<i v-else class="fa-solid fa-user-edit text-4xl text-tokyo-600 mb-2"></i>
+					
+					<!-- 根據情境顯示不同標題 -->
+					<h3 class="text-xl font-bold">
+						<span v-if="currentUser === '訪客'">歡迎使用東京旅遊助手</span>
+						<span v-else>變更身分</span>
+					</h3>
+					
+					<!-- 只有當 currentUser 不是 '訪客' 時顯示目前身分 -->
+					<div v-if="currentUser && currentUser !== '訪客'">
+						<p class="text-xs text-gray-500 mt-2">您目前的身分是</p>
+						<p class="text-lg font-bold text-tokyo-600 mt-1">{{ currentUser }}</p>
+					</div>
+					
+					<p class="text-sm text-gray-600 dark:text-gray-400 mt-3">
+						<span v-if="currentUser === '訪客'">請設定您的暱稱，方便旅伴識別您的編輯記錄</span>
+						<span v-else>請輸入新的暱稱</span>
+					</p>
 				</div>
+				
 				<div class="space-y-4">
-					<input v-model="tempIdentity" @keyup.enter="saveIdentity" placeholder="輸入新的暱稱" class="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-xl text-center font-bold text-lg border-2 border-transparent focus:border-tokyo-500 outline-none dark:text-white">
-					<p class="text-xs text-gray-500 text-center">這會顯示在最後編輯者資訊中</p>
+					<!-- 根據情境顯示不同輸入提示 -->
+					<input v-model="tempIdentity" 
+						   @keyup.enter="saveIdentity" 
+						   :placeholder="currentUser === '訪客' ? '例如：小明、Alice、旅行小編...' : '輸入新的暱稱'"
+						   class="w-full bg-gray-50 dark:bg-slate-800 p-4 rounded-xl text-center font-bold text-lg border-2 border-transparent focus:border-tokyo-500 outline-none dark:text-white">
+					
+					<!-- 初次使用提示 -->
+					<div v-if="currentUser === '訪客'" class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+						<p class="text-xs text-blue-600 dark:text-blue-400">
+							<i class="fa-solid fa-info-circle mr-1"></i>
+							設定後，您的編輯記錄會顯示這個暱稱，方便旅伴協作
+						</p>
+					</div>
 				</div>
+				
 				<div class="flex gap-3 mt-6">
-					<button @click="cancelIdentityChange" class="flex-1 px-5 py-3 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold">
+					<!-- 初次使用時不顯示取消按鈕 -->
+					<button v-if="currentUser && currentUser !== '訪客'" 
+							@click="cancelIdentityChange" 
+							class="flex-1 px-5 py-3 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold">
 						取消
 					</button>
-					<button @click="saveIdentity" :disabled="!tempIdentity" class="flex-1 px-5 py-3 bg-tokyo-600 text-white rounded-xl font-bold disabled:opacity-50">
-						確認變更
+					
+					<!-- 根據情境顯示不同按鈕文字 -->
+					<button @click="saveIdentity" 
+							:disabled="!tempIdentity" 
+							:class="[(!currentUser || currentUser === '訪客') ? 'w-full' : 'flex-1', 'px-5 py-3 bg-tokyo-600 text-white rounded-xl font-bold disabled:opacity-50']">
+						<span v-if="!currentUser || currentUser === '訪客'">開始使用</span>
+						<span v-else>確認變更</span>
 					</button>
 				</div>
 			</div>
@@ -567,11 +654,15 @@
 
         createApp({
             setup() {
+				// 新增：地圖加載狀態
+				const mapLoading = ref(false);
+				// 在 setup 中新增一個 ref 來儲存跳動的標記 ID
+				const bouncingMarkerId = ref(null);
                 // --- Sync State ---
                 const syncStatus = ref('idle'); // idle, syncing, error, offline
                 const lastUpdated = ref(null);
                 const lastUpdatedBy = ref('');
-                const currentUser = ref(localStorage.getItem('tokyo_user_identity') || '訪客');
+                const currentUser = ref('');
                 const isInitialLoading = ref(true);
                 const errorMessage = ref('');
                 
@@ -629,6 +720,10 @@
                 const mapInstance = ref(null);
                 const mapMarkers = ref([]);
                 const mapSelectedEvent = ref(null);
+				const highlightedLocation = ref(null);
+				// 新增：地圖中心點記憶
+				const mapCenter = ref([35.6895, 139.6917]);
+				const mapZoom = ref(11);
 
                 // --- 身分管理函數 ---
                 const handleIdentityClick = () => {
@@ -851,86 +946,363 @@
                 });
                 
                 // 新增：每人支出統計
-                const memberBalances = computed(() => {
-                    const colors = ['#f43f5e', '#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#06b6d4'];
-                    const bal = {};
-                    members.value.forEach((m, idx) => bal[m] = { name: m, amount: 0, color: colors[idx % colors.length] });
-                    
-                    expenses.value.forEach(e => {
-                        if (bal[e.payer]) {
-                            bal[e.payer].amount += Number(e.amount);
-                        }
-                    });
-                    
-                    return Object.values(bal);
-                });
-                
-                // 新增：是否有已付款項目
+				const memberBalances = computed(() => {
+					const colors = ['#f43f5e', '#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#06b6d4'];
+					const bal = {};
+					
+					// 初始化所有成員
+					members.value.forEach((m, idx) => {
+						bal[m] = { 
+							name: m, 
+							share: 0,          // 應付分攤金額（顯示用）
+							paid: 0,           // 已付款金額
+							color: colors[idx % colors.length],
+							balance: 0         // 結算餘額（正數表示多付，負數表示欠款）
+						};
+					});
+					
+					// 計算每筆支出
+					expenses.value.forEach(e => {
+						const amount = Number(e.amount);
+						const payer = e.payer;
+						
+						// 1. 記錄付款人已付金額
+						if (bal[payer]) {
+							bal[payer].paid += amount;
+						}
+						
+						// 2. 計算分攤
+						let shares = {};
+						
+						if (e.splitDetails) {
+							if (e.splitDetails.method === 'participants') {
+								// 選擇參與者分攤
+								const perPerson = e.splitDetails.perPerson;
+								e.splitDetails.participants.forEach(participant => {
+									if (bal[participant]) {
+										shares[participant] = (shares[participant] || 0) + perPerson;
+									}
+								});
+								
+							} else if (e.splitDetails.method === 'custom') {
+								// 自訂比例分攤
+								Object.keys(e.splitDetails.splits).forEach(member => {
+									const splitAmount = Number(e.splitDetails.splits[member]) || 0;
+									if (bal[member] && splitAmount > 0) {
+										shares[member] = (shares[member] || 0) + splitAmount;
+									}
+								});
+								
+							} else {
+								// 平均分攤
+								const perPerson = amount / members.value.length;
+								members.value.forEach(member => {
+									if (bal[member]) {
+										shares[member] = (shares[member] || 0) + perPerson;
+									}
+								});
+							}
+						} else {
+							// 舊資料：平均分攤
+							const perPerson = amount / members.value.length;
+							members.value.forEach(member => {
+								if (bal[member]) {
+									shares[member] = (shares[member] || 0) + perPerson;
+								}
+							});
+						}
+						
+						// 3. 將分攤金額加到每個人的 share
+						Object.keys(shares).forEach(member => {
+							bal[member].share += shares[member];
+						});
+					});
+					
+					// 4. 計算結算餘額
+					Object.keys(bal).forEach(member => {
+						bal[member].balance = bal[member].paid - bal[member].share;
+					});
+					
+					return Object.values(bal);
+				});
+				// 新增：是否有已付款項目
                 const hasSettlementsPaid = computed(() => {
                     return Object.keys(settlementsPaid.value).length > 0;
                 });
 
                 // 修改：結算建議，加入已付款狀態
                 const settlements = computed(() => {
-                    if(!expenses.value.length) return [];
-                    const bal = {}; members.value.forEach(m => bal[m] = 0);
-                    
-                    // 計算每人實際支出
-                    expenses.value.forEach(e => { 
-                        if(bal[e.payer] !== undefined) bal[e.payer] += Number(e.amount); 
-                    });
-                    
-                    const diffs = members.value.map(m => ({ name: m, val: bal[m] - avgExpense.value })).sort((a,b) => a.val - b.val);
-                    const res = [];
-                    let i=0, j=diffs.length-1;
-                    while(i < j) {
-                        if(Math.abs(diffs[i].val) < 1) { i++; continue; }
-                        if(Math.abs(diffs[j].val) < 1) { j--; continue; }
-                        const amt = Math.min(Math.abs(diffs[i].val), diffs[j].val);
-                        res.push({ from: diffs[i].name, to: diffs[j].name, amount: Math.round(amt) });
-                        diffs[i].val += amt; diffs[j].val -= amt;
-                    }
-                    
-                    // 標記已付款狀態
-                    return res.map(s => {
-                        const key = `${s.from}-${s.to}-${s.amount}`;
-                        return {
-                            ...s,
-                            paid: !!settlementsPaid.value[key]
-                        };
-                    });
-                });
-
-                // --- UI Helpers ---
+					if(!expenses.value.length) return [];
+					
+					// 使用 memberBalances 計算的結算餘額
+					const balances = {};
+					memberBalances.value.forEach(m => {
+						balances[m.name] = m.balance; // 使用 balance 而非 amount
+					});
+					
+					// 轉換為差額陣列
+					const diffs = Object.keys(balances).map(name => ({ 
+						name, 
+						val: balances[name] 
+					})).sort((a,b) => a.val - b.val);
+					
+					const res = [];
+					let i=0, j=diffs.length-1;
+					
+					while(i < j) {
+						if(Math.abs(diffs[i].val) < 1) { i++; continue; }
+						if(Math.abs(diffs[j].val) < 1) { j--; continue; }
+						
+						const amt = Math.min(Math.abs(diffs[i].val), diffs[j].val);
+						res.push({ 
+							from: diffs[i].name, 
+							to: diffs[j].name, 
+							amount: Math.round(amt) 
+						});
+						
+						diffs[i].val += amt;
+						diffs[j].val -= amt;
+					}
+					
+					return res;
+				});
+				
+				const memberBalancesForDisplay = computed(() => {
+					return memberBalances.value.map(member => ({
+						name: member.name,
+						amount: member.amount, // 永遠是正數
+						color: member.color,
+						type: member.paid > member.share ? '多付' : '應付' // 標註類型
+					}));
+				});
+				// --- UI Helpers ---
                 const formatTime = (t) => t;
                 const formatNumber = (n) => n.toLocaleString();
                 const getCategoryColor = (c, bg) => { const map = {'景點':'rose-500','美食':'orange-500','交通':'blue-500','住宿':'purple-500','購物':'emerald-500'}; return bg ? `bg-${map[c]||'gray-400'}` : `text-${map[c]||'gray-400'}`; };
                 const getCategoryIcon = (c) => ({'景點':'fa-camera','美食':'fa-utensils','交通':'fa-train','住宿':'fa-bed','購物':'fa-bag-shopping'}[c]||'fa-star');
-                const switchTab = (t) => { currentTab.value = t; if(t==='map') nextTick(initMap); };
-                
+                const switchTab = (t) => { 
+					currentTab.value = t; 
+					if(t === 'map') {
+						nextTick(() => {
+							setTimeout(() => {
+								initMap();
+								// 再次調整大小以確保正確顯示
+								if (mapInstance.value) {
+									mapInstance.value.invalidateSize();
+								}
+							}, 100);
+						});
+					}
+				};
+					
                 // Map
-                const initMap = () => {
-                    if(mapInstance.value) { mapInstance.value.invalidateSize(); return; }
-                    const map = L.map('mapContainer', {zoomControl:false}).setView([35.6895, 139.6917], 11);
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution:'&copy; OSM'}).addTo(map);
-                    mapInstance.value = map;
-                    updateMarkers();
-                };
-                const updateMarkers = () => {
-                    if(!mapInstance.value) return;
-                    mapMarkers.value.forEach(m => m.remove());
-                    schedule.value.forEach(e => {
-                        if(e.lat && e.lng) {
-                            const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class="marker-pin ${getCategoryColor(e.category, true)}"></div><i class="fa-solid ${getCategoryIcon(e.category)} marker-icon"></i>`, iconSize: [30,42], iconAnchor: [15,42] });
-                            const m = L.marker([e.lat, e.lng], {icon}).addTo(mapInstance.value).on('click', () => { mapSelectedEvent.value = e; mapInstance.value.setView([e.lat,e.lng], 14); });
-                            mapMarkers.value.push(m);
-                        }
-                    });
-                };
-                const openMap = (e) => {
-                     mapSelectedEvent.value = e; switchTab('map'); 
-                     if(!e.lat) window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`, '_blank');
-                };
+				const initMap = () => {
+					console.log('🗺️ Initializing map...');
+					
+					const container = document.getElementById('mapContainer');
+					if (!container) {
+						console.error('❌ Map container not found');
+						errorMessage.value = '找不到地圖容器';
+						return;
+					}
+					
+					console.log('✅ Map container found:', container);
+
+					// 如果地圖已經初始化，只調整大小
+					if(mapInstance.value) { 
+						console.log('🔄 Map already exists, resizing...');
+						setTimeout(() => {
+							mapInstance.value.invalidateSize();
+							mapInstance.value.setView(mapCenter.value, mapZoom.value);
+							updateMarkers();
+						}, 100);
+						return; 
+					}
+					
+					mapLoading.value = true;
+					
+					try {
+						console.log('🏗️ Creating new map instance...');
+						
+						// 確保容器有高度
+						container.style.height = '100%';
+						
+						// 創建地圖實例
+						const map = L.map('mapContainer', {
+							center: mapCenter.value,
+							zoom: mapZoom.value,
+							zoomControl: false,
+							preferCanvas: true
+						});
+						
+						console.log('✅ Map instance created');
+						
+						// 添加圖層
+						L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+							attribution: '&copy; OpenStreetMap',
+							maxZoom: 19,
+							minZoom: 10
+						}).addTo(map);
+						
+						console.log('✅ Tile layer added');
+						
+						mapInstance.value = map;
+						
+						// 監聽地圖事件
+						map.on('moveend', () => {
+							const center = map.getCenter();
+							mapCenter.value = [center.lat, center.lng];
+							mapZoom.value = map.getZoom();
+						});
+						
+						// 延遲更新以確保地圖完全載入
+						setTimeout(() => {
+							console.log('🔧 Invalidating size and updating markers...');
+							map.invalidateSize();
+							updateMarkers();
+							mapLoading.value = false;
+							console.log('✅ Map initialization complete');
+						}, 500);
+						
+					} catch (error) {
+						console.error('❌ Map initialization error:', error);
+						mapLoading.value = false;
+						errorMessage.value = '地圖初始化失敗: ' + error.message;
+					}
+				};
+                // 新增：重置地圖視圖
+				const resetMapView = () => {
+					if (mapInstance.value) {
+						mapInstance.value.setView([35.6895, 139.6917], 11);
+						mapCenter.value = [35.6895, 139.6917];
+						mapZoom.value = 11;
+					}
+				};
+				
+				// 新增：調整地圖視圖以包含所有標記
+				const fitMapToMarkers = () => {
+					if (mapInstance.value && mapMarkers.value.length > 0) {
+						const markerGroup = L.featureGroup(mapMarkers.value);
+						mapInstance.value.fitBounds(markerGroup.getBounds(), {
+							padding: [50, 50],
+							maxZoom: 15
+						});
+					}
+				};
+				
+                // 修改 updateMarkers 函數，添加跳動效果
+				const updateMarkers = () => {
+					console.log('📍 Updating markers...');
+					
+					if(!mapInstance.value) {
+						console.warn('⚠️ Map instance not ready');
+						return;
+					}
+					
+					// 清除舊標記
+					mapMarkers.value.forEach(m => {
+						try {
+							m.remove();
+						} catch (e) {
+							console.error('Error removing marker:', e);
+						}
+					});
+					mapMarkers.value = [];
+					
+					let validMarkers = 0;
+					
+					schedule.value.forEach(e => {
+						// 檢查是否有有效的經緯度
+						if(e.lat && e.lng && !isNaN(e.lat) && !isNaN(e.lng)) {
+							try {
+								const categoryClass = getCategoryColor(e.category, true).replace('bg-', 'marker-');
+								
+								const icon = L.divIcon({
+									className: 'custom-div-icon',
+									html: `
+										<div class="marker-pin ${categoryClass} ${bouncingMarkerId.value === e.id ? 'marker-bounce marker-glow' : ''}"></div>
+										<i class="fa-solid ${getCategoryIcon(e.category)} marker-icon ${bouncingMarkerId.value === e.id ? 'text-yellow-300' : ''}"></i>
+									`,
+									iconSize: [30,42],
+									iconAnchor: [15,42]
+								});
+								
+								const m = L.marker([e.lat, e.lng], {icon})
+									.addTo(mapInstance.value)
+									.on('click', () => {
+										mapSelectedEvent.value = e;
+										mapInstance.value.setView([e.lat, e.lng], 14, {
+											animate: true,
+											duration: 0.8
+										});
+										bouncingMarkerId.value = e.id;
+										setTimeout(() => {
+											bouncingMarkerId.value = null;
+										}, 3000);
+									});
+								
+								if (bouncingMarkerId.value === e.id) {
+									m.bindPopup(`<div class="font-bold">${e.title}</div><div class="text-xs text-gray-600">${e.location}</div>`).openPopup();
+								}
+								
+								mapMarkers.value.push(m);
+								validMarkers++;
+							} catch (error) {
+								console.error('Error creating marker:', error, e);
+							}
+						}
+					});
+					
+					console.log(`✅ Added ${validMarkers} markers to map`);
+					
+					// 如果沒有標記，顯示提示
+					if (validMarkers === 0) {
+						console.log('ℹ️ No valid markers found. Add some events with locations!');
+					}
+				};
+				// 修改 openMap 函數 - 優化地圖跳轉
+				const openMap = (e) => {
+					mapSelectedEvent.value = e;
+					highlightedLocation.value = e.location; // 儲存要高亮的地點
+					switchTab('map');
+					
+					if(!e.lat) {
+						window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`, '_blank');
+					} else {
+						// 設置跳動標記的 ID
+						bouncingMarkerId.value = e.id;
+						
+						// 等待地圖初始化完成
+						const waitForMap = () => {
+							if (mapInstance.value) {
+								// 平滑移動到標記位置
+								mapInstance.value.flyTo([e.lat, e.lng], 14, {
+									duration: 1.2,
+									easeLinearity: 0.25
+								});
+								
+								// 更新標記
+								updateMarkers();
+								
+								// 5秒後停止跳動
+								setTimeout(() => {
+									bouncingMarkerId.value = null;
+								}, 5000);
+							} else {
+								// 如果地圖還沒準備好，延遲重試
+								setTimeout(waitForMap, 100);
+							}
+						};
+						
+						// 啟動等待
+						waitForMap();
+					}
+					
+					// 3秒後清除高亮
+					setTimeout(() => {
+						highlightedLocation.value = null;
+					}, 3000);
+				};
                 
                 // --- 分帳狀態追蹤函數 ---
                 const toggleSettlementPaid = (settlement) => {
@@ -956,24 +1328,6 @@
                     }
                 };
                 
-                // --- 分攤方式函數 ---
-                const toggleParticipant = (member) => {
-                    const index = expenseForm.value.participants.indexOf(member);
-                    if (index === -1) {
-                        expenseForm.value.participants.push(member);
-                    } else {
-                        expenseForm.value.participants.splice(index, 1);
-                    }
-                };
-                
-                // 初始化自訂分攤
-                const initCustomSplits = () => {
-                    const splits = {};
-                    members.value.forEach(m => {
-                        splits[m] = 0;
-                    });
-                    expenseForm.value.customSplits = splits;
-                };
 
                 // --- CRUD ---
                 const openEventModal = () => { eventForm.value = {id:Date.now(), dayIdx: currentDayIndex.value, time:'10:00', category:'景點'}; isEditing.value=false; showEventModal.value=true; };
@@ -998,21 +1352,99 @@
                     initCustomSplits();
                     showExpenseModal.value=true; 
                 };
+				// 新增：切換參與者選擇
+				const toggleParticipant = (member) => {
+					const index = expenseForm.value.participants.indexOf(member);
+					if (index === -1) {
+						expenseForm.value.participants.push(member);
+					} else {
+						expenseForm.value.participants.splice(index, 1);
+					}
+				};
+
+				// 新增：初始化自訂分攤金額
+				const initCustomSplits = () => {
+					const splits = {};
+					members.value.forEach(m => {
+						splits[m] = 0;
+					});
+					expenseForm.value.customSplits = splits;
+				};
                 const saveExpense = () => { 
-                    if(!expenseForm.value.title) return;
-                    
-                    // 處理分攤邏輯
-                    const expense = {...expenseForm.value};
-                    
-                    // 清除不需要的屬性
-                    delete expense.splitMethod;
-                    delete expense.participants;
-                    delete expense.customSplits;
-                    
-                    expenses.value.push(expense); 
-                    saveData(); 
-                    showExpenseModal.value=false; 
-                };
+					if(!expenseForm.value.title || !expenseForm.value.amount) {
+						errorMessage.value = '請填寫項目和金額';
+						return;
+					}
+					
+					// 根據分攤方式計算每人應付金額
+					const expense = {...expenseForm.value};
+					const amount = Number(expense.amount);
+					
+					// 計算分攤
+					if (expense.splitMethod === 'participants') {
+						// 選擇參與者：只在選中的參與者之間平均分攤
+						const validParticipants = expense.participants.filter(p => members.value.includes(p));
+						if (validParticipants.length === 0) {
+							errorMessage.value = '請至少選擇一位參與者';
+							return;
+						}
+						
+						if (!validParticipants.includes(expense.payer)) {
+							errorMessage.value = '付款人必須是參與者之一';
+							setTimeout(() => errorMessage.value = '', 3000);
+							return;
+						}
+										
+						const perPerson = amount / validParticipants.length;
+						expense.splitDetails = {
+							method: 'participants',
+							participants: [...validParticipants],
+							perPerson: perPerson,
+							totalParticipants: validParticipants.length
+						};
+						
+					} else if (expense.splitMethod === 'custom') {
+						// 自訂比例：使用自訂金額
+						let customTotal = 0;
+						const customSplits = {};
+						
+						members.value.forEach(member => {
+							const memberAmount = Number(expense.customSplits[member]) || 0;
+							customSplits[member] = memberAmount;
+							customTotal += memberAmount;
+						});
+						
+						// 驗證自訂金額總和是否等於總金額
+						if (Math.abs(customTotal - amount) > 1) { // 允許1元誤差
+							errorMessage.value = `自訂金額總和 (¥${customTotal}) 不等於總金額 (¥${amount})`;
+							return;
+						}
+						
+						expense.splitDetails = {
+							method: 'custom',
+							splits: customSplits,
+							totalAmount: customTotal
+						};
+						
+					} else {
+						// 平均分攤：所有成員平均分攤
+						const perPerson = amount / members.value.length;
+						expense.splitDetails = {
+							method: 'equal',
+							perPerson: perPerson,
+							totalParticipants: members.value.length
+						};
+					}
+					
+					// 清除不需要的表單屬性
+					delete expense.splitMethod;
+					delete expense.participants;
+					delete expense.customSplits;
+					
+					expenses.value.push(expense); 
+					saveData(); 
+					showExpenseModal.value=false; 
+				};
                 const deleteExpense = (id) => { if(confirm('刪除?')) { expenses.value = expenses.value.filter(e=>e.id!==id); saveData(); } };
                 const addMember = () => { if(newMemberName.value && !members.value.includes(newMemberName.value)) { members.value.push(newMemberName.value); newMemberName.value=''; saveData(); } };
                 const removeMember = (i) => { if(confirm('移除?')) { members.value.splice(i,1); saveData(); } };
@@ -1024,6 +1456,9 @@
                     if (isDarkMode.value) {
                         document.documentElement.classList.replace('light', 'dark');
                     }
+					// 初始化 user identity
+					const savedUser = localStorage.getItem('tokyo_user_identity');
+					currentUser.value = savedUser || '訪客';
                     
                     // 初始化 token 和 gist id
                     tempToken.value = githubToken.value;
@@ -1042,20 +1477,47 @@
                     setInterval(pollData, POLL_INTERVAL);
                 });
 
-                watch(currentTab, (v) => { if(v==='map') nextTick(() => { initMap(); updateMarkers(); }); });
-
+                // **地圖修正 1**: 監聽 currentTab 變化，切換到地圖時重新計算尺寸
+                watch(currentTab, (val) => {
+					console.log('📱 Tab changed to:', val);
+					if (val === 'map') {
+						nextTick(() => {
+							setTimeout(() => {
+								initMap();
+							}, 150);
+						});
+					}
+				});
+							
+				watch(bouncingMarkerId, () => {
+					if (currentTab.value === 'map' && mapInstance.value) {
+						updateMarkers();
+					}
+				});
+				
+				// 監聽窗口大小變化，重新調整地圖大小
+				window.addEventListener('resize', () => {
+					if (currentTab.value === 'map' && mapInstance.value) {
+						setTimeout(() => {
+							mapInstance.value.invalidateSize();
+						}, 200);
+					}
+				});
+				
                 return {
-                    currentTab, currentDayIndex, days, schedule, expenses, members, sortedExpenses, currentDayEvents,
-                    totalExpense, avgExpense, expenseStats, memberBalances, settlements, hasSettlementsPaid,
-                    statusText, statusColorClass, lastUpdatedBy, formattedLastUpdate,
-                    showEventModal, showExpenseModal, showMemberModal, showIdentityModal, showIdentityConfirmModal, showTokenModal, isEditing, eventForm, expenseForm, 
-                    newMemberName, tempIdentity, tempToken, tempGistId, showTokenInput,
-                    mapSelectedEvent, isInitialLoading, errorMessage, syncStatus, currentUser, isDarkMode, hasToken,
-                    switchTab, openEventModal, editEvent, saveEvent, deleteEvent, openExpenseModal, saveExpense, deleteExpense,
-                    addMember, removeMember, saveIdentity, cancelIdentityChange, handleIdentityClick, saveToken, clearToken, forceSync, openMap, formatTime, formatNumber, 
-                    getCategoryColor, getCategoryIcon, toggleDarkMode,
-                    toggleSettlementPaid, clearAllSettlementsPaid, toggleParticipant
-                };
+					currentTab, currentDayIndex, days, schedule, expenses, members, sortedExpenses, currentDayEvents,
+					totalExpense, avgExpense, expenseStats, memberBalances, settlements, hasSettlementsPaid,
+					statusText, statusColorClass, lastUpdatedBy, formattedLastUpdate,
+					showEventModal, showExpenseModal, showMemberModal, showIdentityModal, showIdentityConfirmModal, showTokenModal, isEditing, eventForm, expenseForm, 
+					newMemberName, tempIdentity, tempToken, tempGistId, showTokenInput,
+					mapSelectedEvent, mapLoading, isInitialLoading, errorMessage, syncStatus, currentUser, isDarkMode, hasToken,
+					highlightedLocation,  // 👈 添加這一行
+					switchTab, openEventModal, editEvent, saveEvent, deleteEvent, openExpenseModal, saveExpense, deleteExpense,
+					addMember, removeMember, saveIdentity, cancelIdentityChange, handleIdentityClick, saveToken, clearToken, forceSync, 
+					openMap, resetMapView, fitMapToMarkers, formatTime, formatNumber, 
+					getCategoryColor, getCategoryIcon, toggleDarkMode,
+					toggleSettlementPaid, clearAllSettlementsPaid, toggleParticipant
+				};
             }
         }).mount('#app');
     </script>
