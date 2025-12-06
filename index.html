@@ -407,24 +407,27 @@
             <!-- 4. Packing Tab (行李清單分頁) -->
 			<div v-show="currentTab === 'packing'" class="pb-24 animate-fade-in overflow-y-auto h-full">
                 <!-- 進度條 -->
-                <div class="bg-white dark:bg-slate-800 p-4 m-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center">
-                            <i class="fa-solid fa-suitcase-rolling mr-2 text-tokyo-500"></i> 行李清單 ({{ currentUser }})
-                        </h3>
-                        <span class="text-sm font-bold text-tokyo-600 dark:text-tokyo-400">{{ packedCount }}/{{ packingList.length }} ({{ packedPercentage }}%)</span>
-                    </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div class="bg-tokyo-600 h-2.5 rounded-full transition-all duration-500" :style="{ width: packedPercentage + '%' }"></div>
-                    </div>
-                </div>
+				<div class="bg-white dark:bg-slate-800 p-4 m-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+					<div class="flex justify-between items-center mb-2">
+						<h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center">
+							<i class="fa-solid fa-suitcase-rolling mr-2 text-tokyo-500"></i> 行李清單 ({{ currentUser }})
+						</h3>
+						<span class="text-sm font-bold text-tokyo-600 dark:text-tokyo-400">{{ packedCount }}/{{ packingList.length }} ({{ packedPercentage }}%)</span>
+					</div>
+					<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+						<div class="bg-tokyo-600 h-2.5 rounded-full transition-all duration-500" :style="{ width: packedPercentage + '%' }"></div>
+					</div>
+				</div>
 
-                <!-- 新增按鈕 -->
-                <div class="px-4 mt-4 flex justify-end">
-                    <button @click="openPackingModal()" class="bg-tokyo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg hover:bg-tokyo-700 active:scale-95 transition flex items-center">
-                        <i class="fa-solid fa-plus mr-1"></i> 新增物品
-                    </button>
-                </div>
+				<!-- 按鈕區域 -->
+				<div class="px-4 mt-4 flex justify-between">
+					<button @click="clearAllPackingChecks" class="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-bold shadow hover:bg-gray-200 dark:hover:bg-slate-700 transition flex items-center gap-2">
+						<i class="fa-solid fa-square-check"></i> 取消全選
+					</button>
+					<button @click="openPackingModal()" class="bg-tokyo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg hover:bg-tokyo-700 active:scale-95 transition flex items-center gap-2">
+						<i class="fa-solid fa-plus"></i> 新增物品
+					</button>
+				</div>
 
                 <!-- 行李分組 -->
                 <div class="p-4 space-y-6">
@@ -774,17 +777,14 @@
         const POLL_INTERVAL = 5000; // 5秒檢查一次
 
         // 預設行李清單
-        const DEFAULT_PACKING_LIST = [
-			{ name: "手機架", category: "3C用品", carry_type: "託運行李", quantity: 1, checked: false },
+        const DEFAULT_PACKING_LIST = [			
 			{ name: "行動電源", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
 			{ name: "充電線(手機、其他3C用品)", category: "3C用品", carry_type: "託運行李", quantity: 1, checked: false },
 			{ name: "自拍棒", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
 			{ name: "手機", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
-			{ name: "COOLIFY Air AI智慧頸掛", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
 			{ name: "耳機", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
 			{ name: "eSIM卡/手機漫遊/上網卡", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
-			{ name: "電扇", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
-			{ name: "護唇膏/破嘴藥", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "護唇膏", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
 			{ name: "牙線", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
 			{ name: "清潔用品(牙刷/牙膏/毛巾)", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
 			{ name: "保養品(乳液/化妝棉/潔膚水)", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
@@ -796,10 +796,7 @@
 			{ name: "褲子", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
 			{ name: "拖鞋", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
 			{ name: "免洗褲/免洗內衣", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
-			{ name: "洞洞鞋/黑鞋", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
 			{ name: "髮圈", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
-			{ name: "鞋子", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
-			{ name: "帽子/草帽", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false }
 		];
 
         createApp({
@@ -896,6 +893,18 @@
 
                 // --- 行李清單邏輯 (LocalStorage) ---
                 const getPackingListKey = () => `tokyo_packing_list_${currentUser.value}`; // 綁定使用者暱稱
+				
+				// 新增：一鍵取消所有勾選
+				const clearAllPackingChecks = () => {
+					if (packingList.value.length === 0) return;
+					
+					if (confirm(`確定要取消所有 ${packingList.value.length} 個項目的勾選嗎？`)) {
+						packingList.value.forEach(item => {
+							item.checked = false;
+						});
+						savePackingList();
+					}
+				};
 
                 const loadPackingList = () => {
                     const key = getPackingListKey();
@@ -1005,7 +1014,7 @@
                         loadPackingList();
                     }
                 };
-                
+     
                 const cancelIdentityChange = () => {
                     showIdentityConfirmModal.value = false;
                     tempIdentity.value = '';
@@ -1912,7 +1921,7 @@
 					mapSelectedEvent, mapLoading, isInitialLoading, errorMessage, syncStatus, currentUser, isDarkMode, hasToken,
 					highlightedLocation,  // 👈 添加這一行
 					// 行李清單相關
-					packingList, groupedPackingList, packedCount, packedPercentage, showPackingModal, packingForm,
+					packingList, clearAllPackingChecks, groupedPackingList, packedCount, packedPercentage, showPackingModal, packingForm,
 					switchTab, openEventModal, editEvent, saveEvent, deleteEvent, openExpenseModal, saveExpense, deleteExpense,
 					addMember, removeMember, saveIdentity, cancelIdentityChange, handleIdentityClick, saveToken, clearToken, forceSync, 
 					openMap, resetMapView, fitMapToMarkers, formatTime, formatNumber, 
