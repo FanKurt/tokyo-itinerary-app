@@ -1574,40 +1574,7 @@
 				};
 
 				// 預設購物清單項目
-				const DEFAULT_SHOPPING_LIST = [
-					{
-						id: '1',
-						name: '雷神巧克力',
-						category: '伴手禮',
-						shop: '便利商店',
-						location: '日本各大便利商店',
-						imageUrl: 'https://images.unsplash.com/photo-1571406363064-7c9b7b5c07e8?w=400&h=300&fit=crop',
-						priority: '高',
-						purchased: false,
-						note: '黑色包裝的最經典'
-					},
-					{
-						id: '2',
-						name: '東京香蕉蛋糕',
-						category: '伴手禮',
-						shop: '東京車站',
-						location: '東京車站內販售',
-						imageUrl: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400&h=300&fit=crop',
-						priority: '高',
-						purchased: false,
-						note: '經典原味或巧克力口味'
-					},
-					{
-						id: '3',
-						name: '淺草寺人形燒',
-						category: '美食',
-						shop: '淺草寺周邊',
-						location: '淺草寺',
-						purchased: false,
-						priority: '中',
-						note: '現烤的最好吃'
-					}
-				];
+				const DEFAULT_SHOPPING_LIST = [];
 
 				// --- 購物清單 LocalStorage 管理 ---
 				const getShoppingListKey = () => `tokyo_shopping_list_${currentUser.value}`;
