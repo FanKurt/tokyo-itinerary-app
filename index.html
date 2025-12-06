@@ -65,7 +65,8 @@
         /* 快速金額按鈕 */
         .quick-amount-btn { transition: all 0.2s ease; }
         .quick-amount-btn:active { transform: scale(0.95); }
-		/* 跳動動畫 */
+		
+        /* 跳動動畫 */
 		@keyframes bounce {
 			0%, 100% { transform: translateY(0) scale(1); }
 			50% { transform: translateY(-12px) scale(1.15); }
@@ -113,6 +114,15 @@
 		.leaflet-marker-icon {
 			transition: transform 0.3s ease;
 		}
+
+        /* 行李清單自定義複選框 */
+        .custom-checkbox input:checked + div {
+            background-color: #e11d48;
+            border-color: #e11d48;
+        }
+        .custom-checkbox input:checked + div svg {
+            display: block;
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen w-screen overflow-hidden">
@@ -393,6 +403,65 @@
 					</button>
 				</div>
 			</div>
+
+            <!-- 4. Packing Tab (行李清單分頁) -->
+			<div v-show="currentTab === 'packing'" class="pb-24 animate-fade-in overflow-y-auto h-full">
+                <!-- 進度條 -->
+                <div class="bg-white dark:bg-slate-800 p-4 m-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center">
+                            <i class="fa-solid fa-suitcase-rolling mr-2 text-tokyo-500"></i> 行李清單 ({{ currentUser }})
+                        </h3>
+                        <span class="text-sm font-bold text-tokyo-600 dark:text-tokyo-400">{{ packedCount }}/{{ packingList.length }} ({{ packedPercentage }}%)</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                        <div class="bg-tokyo-600 h-2.5 rounded-full transition-all duration-500" :style="{ width: packedPercentage + '%' }"></div>
+                    </div>
+                </div>
+
+                <!-- 新增按鈕 -->
+                <div class="px-4 mt-4 flex justify-end">
+                    <button @click="openPackingModal()" class="bg-tokyo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg hover:bg-tokyo-700 active:scale-95 transition flex items-center">
+                        <i class="fa-solid fa-plus mr-1"></i> 新增物品
+                    </button>
+                </div>
+
+                <!-- 行李分組 -->
+                <div class="p-4 space-y-6">
+                    <div v-if="packingList.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
+                        <p>清單是空的...</p>
+                        <button @click="resetPackingList" class="mt-2 text-tokyo-500 underline text-sm">載入預設清單</button>
+                    </div>
+
+                    <div v-for="(group, type) in groupedPackingList" :key="type" class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-slate-700">
+                        <div class="bg-gray-100 dark:bg-slate-700/50 px-4 py-3 font-bold text-gray-700 dark:text-gray-200 flex justify-between items-center border-b border-gray-100 dark:border-slate-700">
+                            <span><i :class="getCarryTypeIcon(type)" class="mr-2 text-gray-500 dark:text-gray-400"></i> {{ type }}</span>
+                            <span class="text-xs bg-gray-200 dark:bg-slate-600 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-300">{{ group.filter(i => i.checked).length }}/{{ group.length }}</span>
+                        </div>
+                        <div class="divide-y divide-gray-100 dark:divide-slate-700">
+                            <div v-for="item in group" :key="item.id" class="p-3 flex items-center transition duration-150">
+								<label class="custom-checkbox flex items-center cursor-pointer mr-3">
+									<input type="checkbox" class="hidden" v-model="item.checked" @change="savePackingList">
+									<div class="w-6 h-6 border-2 border-gray-300 dark:border-gray-500 rounded-md flex items-center justify-center transition-colors bg-white dark:bg-slate-800">
+										<svg class="w-4 h-4 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+									</div>
+								</label>
+								<div class="flex-grow cursor-pointer" @click="editPackingItem(item)">
+									<p :class="['font-medium transition-all text-sm', item.checked ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-800 dark:text-gray-100']">
+										{{ item.name }}
+										<span v-if="item.quantity > 1" class="text-xs bg-tokyo-100 dark:bg-tokyo-900/30 text-tokyo-800 dark:text-tokyo-300 px-1.5 rounded ml-1 font-bold">x{{ item.quantity }}</span>
+									</p>
+									<div class="flex flex-wrap gap-1 mt-1">
+										<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30">{{ item.category }}</span>
+										<span v-if="item.note" class="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[150px]"><i class="fa-regular fa-note-sticky mr-0.5"></i>{{ item.note }}</span>
+									</div>
+								</div>
+								<button @click="editPackingItem(item)" class="text-gray-400 hover:text-tokyo-500 p-2"><i class="fa-solid fa-pen"></i></button>
+							</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 		</main>
 
         <!-- Bottom Nav -->
@@ -405,6 +474,9 @@
             </button>
             <button @click="switchTab('map')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'map' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
                 <i class="fa-solid fa-map-location-dot text-xl mb-1"></i><span class="text-[10px] font-bold">地圖</span>
+            </button>
+            <button @click="switchTab('packing')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'packing' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
+                <i class="fa-solid fa-suitcase-rolling text-xl mb-1"></i><span class="text-[10px] font-bold">行李</span>
             </button>
         </nav>
 
@@ -596,6 +668,38 @@
             </div>
         </div>
 
+        <!-- Packing Modal (行李清單模態窗) -->
+        <div v-if="showPackingModal" class="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+            <div class="bg-white dark:bg-slate-900 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-slide-up border-t border-gray-100 dark:border-slate-800">
+                <div class="w-12 h-1.5 bg-gray-200 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+                <h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white flex items-center gap-2">
+                    <span class="w-1 h-6 bg-tokyo-600 rounded-full inline-block"></span>
+                    {{ isEditing ? '編輯物品' : '新增物品' }}
+                </h3>
+                <form @submit.prevent="savePackingItem" class="space-y-4">
+                    <input v-model="packingForm.name" placeholder="物品名稱 (如: 護照)" class="w-full bg-gray-50 dark:bg-slate-800 p-3.5 rounded-xl border border-transparent focus:border-tokyo-500 outline-none font-bold dark:text-white transition-all" required>
+                    <div class="flex gap-3">
+                        <select v-model="packingForm.category" class="flex-1 bg-gray-50 dark:bg-slate-800 p-3.5 rounded-xl border border-transparent focus:border-tokyo-500 outline-none font-bold dark:text-white appearance-none transition-all">
+                            <option value="3C用品">3C用品</option><option value="日常、鹽洗用品">日常/盥洗</option><option value="衣物類">衣物類</option><option value="文件/證件">文件/證件</option><option value="藥品">藥品</option><option value="其他">其他</option>
+                        </select>
+                        <input type="number" v-model.number="packingForm.quantity" class="w-20 bg-gray-50 dark:bg-slate-800 p-3.5 rounded-xl border border-transparent focus:border-tokyo-500 outline-none font-bold dark:text-white text-center transition-all" min="1" placeholder="數量">
+                    </div>
+                    <select v-model="packingForm.carry_type" class="w-full bg-gray-50 dark:bg-slate-800 p-3.5 rounded-xl border border-transparent focus:border-tokyo-500 outline-none font-bold dark:text-white appearance-none transition-all">
+                        <option value="手提行李">🎒 手提行李 (隨身)</option>
+                        <option value="託運行李">🧳 託運行李</option>
+                        <option value="其他">📦 其他</option>
+                    </select>
+                    <textarea v-model="packingForm.note" placeholder="備註..." rows="2" class="w-full bg-gray-50 dark:bg-slate-800 p-3.5 rounded-xl border border-transparent focus:border-tokyo-500 outline-none resize-none dark:text-white text-sm transition-all"></textarea>
+                    
+                    <div class="flex gap-3 mt-8">
+                        <button type="button" @click="showPackingModal = false" class="flex-1 py-3.5 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 font-bold hover:bg-gray-200 dark:hover:bg-slate-700 transition">取消</button>
+                        <button v-if="isEditing" type="button" @click="deletePackingItem" class="w-14 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 flex items-center justify-center transition"><i class="fa-solid fa-trash-can"></i></button>
+                        <button type="submit" class="flex-[2] bg-tokyo-600 text-white rounded-xl font-bold py-3.5 hover:bg-tokyo-700 transition">儲存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
 		<!-- 身分確認模態窗 - 修正版，確保 currentUser 有值 -->
 		<div v-if="showIdentityConfirmModal && currentUser" class="absolute inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
 			<div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl">
@@ -669,6 +773,35 @@
         const GIST_FILENAME = 'tokyo_trip_data.json';
         const POLL_INTERVAL = 5000; // 5秒檢查一次
 
+        // 預設行李清單
+        const DEFAULT_PACKING_LIST = [
+			{ name: "手機架", category: "3C用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "行動電源", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
+			{ name: "充電線(手機、其他3C用品)", category: "3C用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "自拍棒", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
+			{ name: "手機", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
+			{ name: "COOLIFY Air AI智慧頸掛", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
+			{ name: "耳機", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
+			{ name: "eSIM卡/手機漫遊/上網卡", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
+			{ name: "電扇", category: "3C用品", carry_type: "手提行李", quantity: 1, checked: false },
+			{ name: "護唇膏/破嘴藥", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "牙線", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "清潔用品(牙刷/牙膏/毛巾)", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "保養品(乳液/化妝棉/潔膚水)", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "防曬乳/防蚊液/防蚊貼紙", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "衛生紙/濕紙巾/手帕", category: "日常、鹽洗用品", carry_type: "手提行李", quantity: 1, checked: false },
+			{ name: "口罩", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "刮鬍刀", category: "日常、鹽洗用品", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "上衣", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "褲子", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "拖鞋", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "免洗褲/免洗內衣", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "洞洞鞋/黑鞋", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "髮圈", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "鞋子", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false },
+			{ name: "帽子/草帽", category: "衣物類", carry_type: "託運行李", quantity: 1, checked: false }
+		];
+
         createApp({
             setup() {
 				// 新增：地圖加載狀態
@@ -720,6 +853,9 @@
                 const expenses = ref([]);
                 const members = ref(['我', '旅伴A']);
                 
+                // 行李清單 State (新功能)
+                const packingList = ref([]);
+                
                 // 新增：分帳狀態追蹤
                 const settlementsPaid = ref({});
 
@@ -729,6 +865,7 @@
                 const showMemberModal = ref(false);
                 const showIdentityModal = ref(!localStorage.getItem('tokyo_user_identity'));
                 const showIdentityConfirmModal = ref(false); // 新增：身分確認模態窗
+                const showPackingModal = ref(false); // 新增行李 Modal
                 const isEditing = ref(false);
                 const eventForm = ref({});
                 const expenseForm = ref({ 
@@ -740,6 +877,7 @@
                     participants: [],
                     customSplits: {}
                 });
+                const packingForm = ref({}); // 新增行李 Form
                 const newMemberName = ref('');
                 const tempIdentity = ref('');
 
@@ -755,6 +893,85 @@
 				const mapInitialized = ref(false);
 				// 新增：追蹤地圖縮放狀態
 				const isMapZooming = ref(false);
+
+                // --- 行李清單邏輯 (LocalStorage) ---
+                const getPackingListKey = () => `tokyo_packing_list_${currentUser.value}`; // 綁定使用者暱稱
+
+                const loadPackingList = () => {
+                    const key = getPackingListKey();
+                    const saved = localStorage.getItem(key);
+                    if (saved) {
+                        packingList.value = JSON.parse(saved);
+                    } else {
+                        // 載入預設值並生成 ID
+                        packingList.value = DEFAULT_PACKING_LIST.map(item => ({
+                            ...item,
+                            id: Date.now() + Math.random().toString(36).substr(2, 9),
+                            note: ''
+                        }));
+                        savePackingList();
+                    }
+                };
+
+                const savePackingList = () => {
+                    localStorage.setItem(getPackingListKey(), JSON.stringify(packingList.value));
+                };
+
+                const resetPackingList = () => {
+                    if(confirm("確定要重置為預設清單嗎？目前的修改將會遺失。")) {
+                        localStorage.removeItem(getPackingListKey());
+                        loadPackingList();
+                    }
+                };
+
+                const groupedPackingList = computed(() => {
+                    const groups = {};
+                    packingList.value.forEach(item => {
+                        const type = item.carry_type || '其他';
+                        if (!groups[type]) groups[type] = [];
+                        groups[type].push(item);
+                    });
+                    return groups;
+                });
+
+                const packedCount = computed(() => packingList.value.filter(i => i.checked).length);
+                const packedPercentage = computed(() => packingList.value.length ? Math.round((packedCount.value / packingList.value.length) * 100) : 0);
+
+                const getCarryTypeIcon = (type) => {
+                    if (type.includes('手提')) return 'fa-solid fa-suitcase';
+                    if (type.includes('託運')) return 'fa-solid fa-cart-flatbed-suitcase';
+                    return 'fa-solid fa-box-open';
+                };
+
+                // 行李 CRUD
+                const openPackingModal = () => { 
+                    isEditing.value = false; 
+                    packingForm.value = { id: null, name: '', category: '其他', carry_type: '託運行李', quantity: 1, note: '' }; 
+                    showPackingModal.value = true; 
+                };
+                const editPackingItem = (item) => { 
+                    isEditing.value = true; 
+                    packingForm.value = { ...item }; 
+                    showPackingModal.value = true; 
+                };
+                const savePackingItem = () => {
+                    if (!packingForm.value.name) return;
+                    if (isEditing.value) {
+                        const idx = packingList.value.findIndex(i => i.id === packingForm.value.id);
+                        if (idx !== -1) packingList.value[idx] = { ...packingList.value[idx], ...packingForm.value };
+                    } else {
+                        packingList.value.push({ ...packingForm.value, id: Date.now().toString(), checked: false });
+                    }
+                    savePackingList();
+                    showPackingModal.value = false;
+                };
+                const deletePackingItem = () => {
+                    if (confirm("確定刪除此物品？")) {
+                        packingList.value = packingList.value.filter(i => i.id !== packingForm.value.id);
+                        savePackingList();
+                        showPackingModal.value = false;
+                    }
+                };
 
                 // --- 身分管理函數 ---
                 const handleIdentityClick = () => {
@@ -783,6 +1000,9 @@
                         if (hasToken.value) {
                             saveData();
                         }
+                        
+                        // 重新載入行李清單（使用新的使用者身分）
+                        loadPackingList();
                     }
                 };
                 
@@ -1618,7 +1838,10 @@
                     tempToken.value = githubToken.value;
                     tempGistId.value = gistId.value;
                     
-                    // 載入資料
+                    // 載入行李清單
+                    loadPackingList();
+                    
+                    // 載入行程資料
                     await loadData();
                     
                     // 如果沒有 token，顯示提示
@@ -1688,11 +1911,15 @@
 					newMemberName, tempIdentity, tempToken, tempGistId, showTokenInput,
 					mapSelectedEvent, mapLoading, isInitialLoading, errorMessage, syncStatus, currentUser, isDarkMode, hasToken,
 					highlightedLocation,  // 👈 添加這一行
+					// 行李清單相關
+					packingList, groupedPackingList, packedCount, packedPercentage, showPackingModal, packingForm,
 					switchTab, openEventModal, editEvent, saveEvent, deleteEvent, openExpenseModal, saveExpense, deleteExpense,
 					addMember, removeMember, saveIdentity, cancelIdentityChange, handleIdentityClick, saveToken, clearToken, forceSync, 
 					openMap, resetMapView, fitMapToMarkers, formatTime, formatNumber, 
 					getCategoryColor, getCategoryIcon, toggleDarkMode,
-					toggleSettlementPaid, clearAllSettlementsPaid, toggleParticipant
+					toggleSettlementPaid, clearAllSettlementsPaid, toggleParticipant,
+					// 行李清單方法
+					openPackingModal, editPackingItem, savePackingItem, deletePackingItem, resetPackingList, getCarryTypeIcon
 				};
             }
         }).mount('#app');
