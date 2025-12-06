@@ -123,6 +123,74 @@
         .custom-checkbox input:checked + div svg {
             display: block;
         }
+		/* 橫向滾動容器優化 */
+		.scroll-container {
+			-webkit-overflow-scrolling: touch; /* iOS 平滑滾動 */
+			scrollbar-width: none; /* Firefox 隱藏滾動條 */
+			-ms-overflow-style: none; /* IE/Edge 隱藏滾動條 */
+		}
+
+		.scroll-container::-webkit-scrollbar {
+			display: none; /* Chrome/Safari 隱藏滾動條 */
+		}
+
+		/* 分類導覽優化 */
+		.category-navigation {
+			position: relative;
+			margin-bottom: 12px;
+		}
+
+		/* 滾動提示 - 左側漸變陰影 */
+		.scroll-gradient-left {
+			position: absolute;
+			left: 0;
+			top: 0;
+			bottom: 0;
+			width: 20px;
+			background: linear-gradient(to right, 
+				rgba(255,255,255,1) 0%, 
+				rgba(255,255,255,0) 100%);
+			z-index: 10;
+			pointer-events: none;
+		}
+
+		.dark .scroll-gradient-left {
+			background: linear-gradient(to right, 
+				rgba(30, 41, 59, 1) 0%, 
+				rgba(30, 41, 59, 0) 100%);
+		}
+
+		/* 滾動提示 - 右側漸變陰影 */
+		.scroll-gradient-right {
+			position: absolute;
+			right: 0;
+			top: 0;
+			bottom: 0;
+			width: 20px;
+			background: linear-gradient(to left, 
+				rgba(255,255,255,1) 0%, 
+				rgba(255,255,255,0) 100%);
+			z-index: 10;
+			pointer-events: none;
+		}
+
+		.dark .scroll-gradient-right {
+			background: linear-gradient(to left, 
+				rgba(30, 41, 59, 1) 0%, 
+				rgba(30, 41, 59, 0) 100%);
+		}
+
+		/* 分類按鈕優化 */
+		.category-button {
+			flex-shrink: 0;
+			transition: all 0.2s ease;
+			user-select: none;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		.category-button:active {
+			transform: scale(0.95);
+		}
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen w-screen overflow-hidden">
@@ -465,23 +533,424 @@
                     </div>
                 </div>
             </div>
+			
+			<!-- 5. Shopping & Must-Eat List Tab -->
+			<div v-show="currentTab === 'shopping'" class="pb-24 animate-fade-in overflow-y-auto h-full">
+				<!-- 進度統計 -->
+				<div class="bg-white dark:bg-slate-800 p-4 m-4 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+					<div class="flex justify-between items-center mb-2">
+						<h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center">
+							<i class="fa-solid fa-cart-shopping mr-2 text-tokyo-500"></i> 購買／必吃清單
+						</h3>
+						<div class="flex items-center gap-3">
+							<span class="text-sm font-bold text-tokyo-600 dark:text-tokyo-400">{{ purchasedCount }}/{{ shoppingList.length }} ({{ purchasedPercentage }}%)</span>
+							<div class="relative group">
+								<button @click="showShoppingFilter = !showShoppingFilter" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
+									<i class="fa-solid fa-filter text-sm text-gray-600 dark:text-gray-300"></i>
+								</button>
+								<div v-if="showShoppingFilter" class="absolute top-full right-0 mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-200 dark:border-slate-700 z-40 w-48 p-3">
+									<p class="text-xs font-bold text-gray-400 mb-2">篩選分類</p>
+									<div class="space-y-1">
+										<label v-for="cat in shoppingCategories" :key="cat" class="flex items-center gap-2 cursor-pointer">
+											<input type="checkbox" v-model="activeShoppingCategories" :value="cat" @change="saveShoppingList" class="w-3 h-3 rounded border-gray-300 dark:border-gray-600">
+											<span class="text-xs text-gray-700 dark:text-gray-300">{{ cat }}</span>
+										</label>
+									</div>
+									<button @click="activeShoppingCategories = [...shoppingCategories]" class="w-full mt-2 text-xs text-tokyo-600 dark:text-tokyo-400 py-1">全選</button>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+						<div class="bg-tokyo-600 h-2.5 rounded-full transition-all duration-500" :style="{ width: purchasedPercentage + '%' }"></div>
+					</div>
+				</div>
+
+				<!-- 分類導覽 -->
+				<div class="category-navigation px-4 mb-4">
+					<!-- 左側滾動提示（動態顯示） -->
+					<div 
+						class="scroll-gradient-left" 
+						:class="{ 'opacity-0': !showLeftGradient }"
+						style="transition: opacity 0.3s ease;">
+					</div>
+					
+					<!-- 右側滾動提示（動態顯示） -->
+					<div 
+						class="scroll-gradient-right" 
+						:class="{ 'opacity-0': !showRightGradient }"
+						style="transition: opacity 0.3s ease;">
+					</div>
+					
+					<div 
+						ref="categoryScroll"
+						class="flex gap-2 pb-2 scroll-container overflow-x-auto"
+						style="scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;"
+						@scroll="handleCategoryScroll"
+						@touchstart.passive="handleTouchStart"
+						@touchmove.passive="handleTouchMove"
+						@touchend="handleTouchEnd"
+						@mousedown="isCategoryDragging = true"
+						@mousemove="handleMouseMove"
+						@mouseup="isCategoryDragging = false"
+						@mouseleave="isCategoryDragging = false">
+						
+						<button 
+							v-for="cat in shoppingCategories" 
+							:key="cat"
+							@click="toggleShoppingCategory(cat)"
+							@mousedown="handleCategoryMouseDown"
+							:class="[
+								'category-button px-4 py-2.5 rounded-full text-sm font-bold transition-all flex-shrink-0 min-w-max select-none',
+								activeShoppingCategories.includes(cat) 
+									? 'bg-tokyo-600 text-white shadow-md shadow-tokyo-200 dark:shadow-tokyo-900/30' 
+									: 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700'
+							]"
+							style="scroll-snap-align: start;">
+							{{ cat }}
+							<span class="ml-1 text-xs opacity-80 font-normal">
+								({{ shoppingList.filter(i => i.category === cat && !i.purchased).length }})
+							</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- 按鈕區域 -->
+				<div class="px-4 mt-4 flex justify-between">
+					<div class="flex gap-2">
+						<button @click="clearAllShoppingChecks" class="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-bold shadow hover:bg-gray-200 dark:hover:bg-slate-700 transition flex items-center gap-2">
+							<i class="fa-solid fa-square-check"></i> 取消全選
+						</button>
+						<button @click="toggleViewMode" class="bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-bold shadow hover:bg-gray-200 dark:hover:bg-slate-700 transition flex items-center gap-2">
+							<i class="fa-solid" :class="viewMode === 'grid' ? 'fa-list' : 'fa-grid-2'"></i>
+							{{ viewMode === 'grid' ? '列表' : '網格' }}
+						</button>
+					</div>
+					<button @click="openShoppingModal()" class="bg-tokyo-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg hover:bg-tokyo-700 active:scale-95 transition flex items-center gap-2">
+						<i class="fa-solid fa-plus"></i> 新增項目
+					</button>
+				</div>
+
+				<!-- 網格檢視 -->
+				<div v-if="viewMode === 'grid' && filteredShoppingList.length > 0" class="p-4">
+					<div class="grid grid-cols-2 gap-4">
+						<div 
+							v-for="item in filteredShoppingList" 
+							:key="item.id"
+							@click="editShoppingItem(item)"
+							class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-slate-700 group cursor-pointer hover:shadow-md transition-all duration-300">
+							
+							<!-- 圖片區域 -->
+							<div class="relative h-32 overflow-hidden bg-gray-100 dark:bg-slate-700">
+								<div v-if="item.imageUrl" class="w-full h-full">
+									<img :src="item.imageUrl" :alt="item.name" class="w-full h-full object-cover">
+								</div>
+								<div v-else class="w-full h-full flex items-center justify-center">
+									<i class="fa-solid fa-image text-3xl text-gray-300 dark:text-slate-600"></i>
+								</div>
+								
+								<!-- 分類標籤 -->
+								<div class="absolute top-2 left-2">
+									<span class="text-[10px] px-2 py-1 rounded-full font-bold text-white" 
+										  :style="{ backgroundColor: shoppingCategoryColors[item.category] }">
+										{{ item.category }}
+									</span>
+								</div>
+								
+								<!-- 購買狀態 -->
+								<button @click.stop="toggleShoppingPurchased(item)" 
+										class="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow">
+									<i class="fa-solid" :class="item.purchased ? 'fa-check-circle text-emerald-500' : 'fa-circle text-gray-300'"></i>
+								</button>
+							</div>
+							
+							<!-- 內容區域 -->
+							<div class="p-3">
+								<h4 class="font-bold text-gray-800 dark:text-gray-100 text-sm mb-1 line-clamp-1">{{ item.name }}</h4>
+								
+								<div v-if="item.shop" class="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+									<i class="fa-solid fa-store mr-1.5 text-tokyo-500"></i>
+									<span class="line-clamp-1">{{ item.shop }}</span>
+								</div>
+								
+								<div v-if="item.location" class="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-2">
+									<i class="fa-solid fa-location-dot mr-1.5 text-blue-500"></i>
+									<span class="line-clamp-1">{{ item.location }}</span>
+								</div>
+								
+								<div v-if="item.note" class="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
+									{{ item.note }}
+								</div>
+								
+								<!-- 優先度標示 -->
+								<div v-if="item.priority" class="flex justify-end">
+									<span class="text-[10px] px-2 py-0.5 rounded-full" 
+										  :class="item.priority === '高' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300' : 
+												 item.priority === '中' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300' : 
+												 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300'">
+										{{ item.priority }}優先
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- 列表檢視 -->
+				<div v-else-if="viewMode === 'list' && filteredShoppingList.length > 0" class="p-4 space-y-3">
+					<div v-for="item in filteredShoppingList" :key="item.id" 
+						 class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+						
+						<div class="flex gap-3">
+							<!-- 圖片 -->
+							<div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-700 flex-shrink-0">
+								<div v-if="item.imageUrl" class="w-full h-full">
+									<img :src="item.imageUrl" :alt="item.name" class="w-full h-full object-cover">
+								</div>
+								<div v-else class="w-full h-full flex items-center justify-center">
+									<i class="fa-solid fa-image text-xl text-gray-300 dark:text-slate-600"></i>
+								</div>
+							</div>
+							
+							<!-- 內容 -->
+							<div class="flex-1 min-w-0">
+								<div class="flex justify-between items-start mb-1">
+									<h4 class="font-bold text-gray-800 dark:text-gray-100 text-sm line-clamp-1">{{ item.name }}</h4>
+									<button @click="toggleShoppingPurchased(item)" class="ml-2">
+										<i class="fa-solid" :class="item.purchased ? 'fa-check-circle text-emerald-500' : 'fa-circle text-gray-300'"></i>
+									</button>
+								</div>
+								
+								<div class="flex items-center gap-2 mb-1">
+									<span class="text-[10px] px-2 py-0.5 rounded-full text-white" 
+										  :style="{ backgroundColor: shoppingCategoryColors[item.category] }">
+										{{ item.category }}
+									</span>
+									<span v-if="item.priority" class="text-[10px] px-2 py-0.5 rounded-full" 
+										  :class="item.priority === '高' ? 'bg-red-100 text-red-600' : 
+												 item.priority === '中' ? 'bg-amber-100 text-amber-600' : 
+												 'bg-blue-100 text-blue-600'">
+										{{ item.priority }}
+									</span>
+								</div>
+								
+								<div v-if="item.shop" class="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+									<i class="fa-solid fa-store mr-1.5 text-tokyo-500"></i>
+									<span class="line-clamp-1">{{ item.shop }}</span>
+								</div>
+								
+								<div v-if="item.location" class="flex items-center text-xs text-gray-500 dark:text-gray-400">
+									<i class="fa-solid fa-location-dot mr-1.5 text-blue-500"></i>
+									<span class="line-clamp-1">{{ item.location }}</span>
+									<button @click="openShoppingMap(item)" class="ml-2 text-blue-500 hover:text-blue-600">
+										<i class="fa-solid fa-map"></i>
+									</button>
+								</div>
+							</div>
+						</div>
+						
+						<div v-if="item.note" class="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700">
+							<p class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2">{{ item.note }}</p>
+						</div>
+					</div>
+				</div>
+
+				<!-- 空狀態 -->
+				<div v-if="filteredShoppingList.length === 0" class="text-center py-10 px-4">
+					<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-8">
+						<i class="fa-solid fa-cart-shopping text-4xl text-gray-300 dark:text-slate-600 mb-4"></i>
+						<h4 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">清單是空的...</h4>
+						<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">開始新增你想購買的伴手禮或必吃美食！</p>
+						<button @click="resetShoppingList" class="bg-tokyo-600 text-white px-6 py-2 rounded-full text-sm font-bold">
+							載入範例清單
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- 新增購物清單模態窗 -->
+			<div v-if="showShoppingModal" class="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+				<div class="bg-white dark:bg-slate-900 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-slide-up border-t border-gray-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+					<div class="w-12 h-1.5 bg-gray-200 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+					<h3 class="text-xl font-bold mb-6 text-slate-800 dark:text-white flex items-center gap-2">
+						<span class="w-1 h-6 bg-tokyo-600 rounded-full inline-block"></span>
+						{{ isShoppingEditing ? '編輯項目' : '新增項目' }}
+					</h3>
+					
+					<form @submit.prevent="saveShoppingItem" class="space-y-4">
+						<!-- 圖片上傳/預覽 -->
+						<div>
+							<label class="block text-sm font-bold mb-2">圖片</label>
+							<div class="flex items-center gap-4">
+								<div class="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-800 flex items-center justify-center cursor-pointer hover:opacity-90 transition"
+									 @click="triggerImageUpload">
+									<div v-if="shoppingForm.imageUrl" class="w-full h-full">
+										<img :src="shoppingForm.imageUrl" class="w-full h-full object-cover">
+									</div>
+									<div v-else class="text-center p-2">
+										<i class="fa-solid fa-image text-2xl text-gray-400 dark:text-gray-600"></i>
+										<p class="text-xs text-gray-400 mt-1">點擊上傳</p>
+									</div>
+								</div>
+								<div class="flex-1">
+									<input type="file" ref="imageInput" @change="handleImageUpload" accept="image/*" class="hidden">
+									<input v-model="shoppingForm.imageUrl" placeholder="或輸入圖片網址" class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 dark:text-white text-sm">
+									<p class="text-xs text-gray-400 mt-1">支援 JPG、PNG，或圖片網址</p>
+								</div>
+							</div>
+						</div>
+						
+						<!-- 名稱和分類 -->
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label class="block text-sm font-bold mb-2">名稱 *</label>
+								<input v-model="shoppingForm.name" placeholder="例：雷神巧克力" 
+									   class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-transparent focus:border-tokyo-500 outline-none font-bold dark:text-white" required>
+							</div>
+							<div>
+								<label class="block text-sm font-bold mb-2">分類 *</label>
+								<select v-model="shoppingForm.category" 
+										class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-transparent focus:border-tokyo-500 outline-none font-bold dark:text-white appearance-none">
+									<option v-for="cat in shoppingCategories" :value="cat">{{ cat }}</option>
+								</select>
+							</div>
+						</div>
+						
+						<!-- 店家資訊 -->
+						<div class="grid grid-cols-2 gap-3">
+							<div>
+								<label class="block text-sm font-bold mb-2">店家</label>
+								<input v-model="shoppingForm.shop" placeholder="店名" 
+									   class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-transparent focus:border-tokyo-500 outline-none dark:text-white">
+							</div>
+							<div>
+								<label class="block text-sm font-bold mb-2">優先度</label>
+								<select v-model="shoppingForm.priority" 
+										class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-transparent focus:border-tokyo-500 outline-none dark:text-white">
+									<option value="">無</option>
+									<option value="高">高</option>
+									<option value="中">中</option>
+									<option value="低">低</option>
+								</select>
+							</div>
+						</div>
+						
+						<!-- 地點 -->
+						<div>
+							<label class="block text-sm font-bold mb-2">地點</label>
+							<div class="flex gap-2">
+								<input v-model="shoppingForm.location" placeholder="地址或地標" 
+									   class="flex-1 bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-transparent focus:border-tokyo-500 outline-none dark:text-white">
+								<button type="button" @click="openShoppingMapModal" class="w-12 bg-gray-100 dark:bg-slate-800 rounded-xl flex items-center justify-center">
+									<i class="fa-solid fa-map text-gray-600 dark:text-gray-400"></i>
+								</button>
+							</div>
+							<div v-if="shoppingForm.lat && shoppingForm.lng" class="flex items-center gap-2 mt-1">
+								<span class="text-xs text-emerald-600 dark:text-emerald-400">
+									<i class="fa-solid fa-check-circle"></i> 已設定座標
+								</span>
+								<button type="button" @click="clearShoppingLocation" class="text-xs text-red-500 hover:text-red-600">
+									<i class="fa-solid fa-trash"></i> 清除
+								</button>
+							</div>
+						</div>
+						
+						<!-- 備註 -->
+						<div>
+							<label class="block text-sm font-bold mb-2">備註</label>
+							<textarea v-model="shoppingForm.note" placeholder="備註、購買原因..." rows="3" 
+									  class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-transparent focus:border-tokyo-500 outline-none resize-none dark:text-white text-sm"></textarea>
+						</div>
+						
+						<!-- 操作按鈕 -->
+						<div class="flex gap-3 mt-8">
+							<button type="button" @click="showShoppingModal = false" 
+									class="flex-1 py-3.5 rounded-xl bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 font-bold hover:bg-gray-200 dark:hover:bg-slate-700 transition">
+								取消
+							</button>
+							<button v-if="isShoppingEditing" type="button" @click="deleteShoppingItem" 
+									class="w-14 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 flex items-center justify-center transition">
+								<i class="fa-solid fa-trash-can"></i>
+							</button>
+							<button type="submit" 
+									class="flex-[2] bg-tokyo-600 text-white rounded-xl font-bold py-3.5 hover:bg-tokyo-700 transition">
+								儲存
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+
+			<!-- 地點選擇模態窗 -->
+			<div v-if="showLocationModal" class="absolute inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+				<div class="bg-white dark:bg-slate-900 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-slide-up">
+					<h3 class="text-xl font-bold mb-4 dark:text-white">選擇地點</h3>
+					
+					<div class="mb-4">
+						<input v-model="locationSearch" @input="searchLocation" 
+							   placeholder="搜尋地點..." 
+							   class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 dark:text-white">
+					</div>
+					
+					<div class="h-64 overflow-y-auto mb-4">
+						<!-- 搜尋結果 -->
+						<div v-if="locationSearchResults.length > 0">
+							<div v-for="result in locationSearchResults" :key="result.id" 
+								 @click="selectLocation(result)"
+								 class="p-3 border-b border-gray-100 dark:border-slate-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800">
+								<p class="font-medium dark:text-white">{{ result.name }}</p>
+								<p class="text-xs text-gray-500 dark:text-gray-400">{{ result.address }}</p>
+							</div>
+						</div>
+						
+						<!-- 近期行程地點 -->
+						<div v-else>
+							<p class="text-sm font-bold text-gray-400 mb-2">行程中的地點</p>
+							<div v-for="event in schedule" :key="event.id" 
+								 v-if="event.location"
+								 @click="useEventLocation(event)"
+								 class="p-3 border-b border-gray-100 dark:border-slate-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800">
+								<p class="font-medium dark:text-white">{{ event.title }}</p>
+								<p class="text-xs text-gray-500 dark:text-gray-400">{{ event.location }}</p>
+							</div>
+							<div v-if="schedule.filter(e => e.location).length === 0" class="text-center py-4 text-gray-400">
+								暫無行程地點
+							</div>
+						</div>
+					</div>
+					
+					<div class="flex gap-3">
+						<button @click="showLocationModal = false" class="flex-1 py-3 bg-gray-100 dark:bg-slate-800 text-gray-500 font-bold rounded-xl">
+							取消
+						</button>
+						<button @click="useCurrentLocation" class="flex-1 py-3 bg-blue-500 text-white font-bold rounded-xl">
+							使用目前位置
+						</button>
+					</div>
+				</div>
+			</div>
 		</main>
 
         <!-- Bottom Nav -->
         <nav class="bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 flex justify-around items-center h-[85px] pb-5 px-2 safe-bottom z-30 absolute bottom-0 w-full shadow-lg">
-            <button @click="switchTab('schedule')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'schedule' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
-                <i class="fa-solid fa-calendar-days text-xl mb-1"></i><span class="text-[10px] font-bold">行程</span>
-            </button>
-            <button @click="switchTab('expense')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'expense' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
-                <i class="fa-solid fa-wallet text-xl mb-1"></i><span class="text-[10px] font-bold">分帳</span>
-            </button>
-            <button @click="switchTab('map')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'map' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
-                <i class="fa-solid fa-map-location-dot text-xl mb-1"></i><span class="text-[10px] font-bold">地圖</span>
-            </button>
-            <button @click="switchTab('packing')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'packing' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
-                <i class="fa-solid fa-suitcase-rolling text-xl mb-1"></i><span class="text-[10px] font-bold">行李</span>
-            </button>
-        </nav>
+			<!-- 現有的其他按鈕保持不變 -->
+			<button @click="switchTab('schedule')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'schedule' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
+				<i class="fa-solid fa-calendar-days text-xl mb-1"></i><span class="text-[10px] font-bold">行程</span>
+			</button>
+			<button @click="switchTab('expense')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'expense' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
+				<i class="fa-solid fa-wallet text-xl mb-1"></i><span class="text-[10px] font-bold">分帳</span>
+			</button>
+			<button @click="switchTab('map')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'map' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
+				<i class="fa-solid fa-map-location-dot text-xl mb-1"></i><span class="text-[10px] font-bold">地圖</span>
+			</button>
+			<button @click="switchTab('packing')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'packing' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
+				<i class="fa-solid fa-suitcase-rolling text-xl mb-1"></i><span class="text-[10px] font-bold">行李</span>
+			</button>
+			<!-- 新增購物清單按鈕 -->
+			<button @click="switchTab('shopping')" :class="['flex flex-col items-center justify-center w-full h-full rounded-xl', currentTab === 'shopping' ? 'text-tokyo-600 dark:text-tokyo-400' : 'text-gray-400']">
+				<i class="fa-solid fa-cart-shopping text-xl mb-1"></i><span class="text-[10px] font-bold">購物</span>
+			</button>
+		</nav>
 
         <!-- Identity Modal (First Load) -->
         <div v-if="showIdentityModal" class="absolute inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
@@ -767,7 +1236,7 @@
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+        const { createApp, ref, computed, onMounted, nextTick, watch, onBeforeUnmount } = Vue;
 
         // ==========================================
         // 預設 Gist ID (範例資料)
@@ -1080,6 +1549,476 @@
                         return null;
                     }
                 };
+				
+				const shoppingList = ref([]);
+				const showShoppingModal = ref(false);
+				const isShoppingEditing = ref(false);
+				const shoppingForm = ref({});
+				const viewMode = ref('grid'); // 'grid' 或 'list'
+				const showShoppingFilter = ref(false);
+				const activeShoppingCategories = ref([]);
+				const showLocationModal = ref(false);
+				const locationSearch = ref('');
+				const locationSearchResults = ref([]);
+
+				// 購物清單分類和顏色
+				const shoppingCategories = ['伴手禮', '藥妝', '美食', '便利商店', '服飾', '電器', '其他'];
+				const shoppingCategoryColors = {
+					'伴手禮': '#f43f5e',
+					'藥妝': '#8b5cf6',
+					'美食': '#f97316',
+					'便利商店': '#10b981',
+					'服飾': '#3b82f6',
+					'電器': '#06b6d4',
+					'其他': '#64748b'
+				};
+
+				// 預設購物清單項目
+				const DEFAULT_SHOPPING_LIST = [
+					{
+						id: '1',
+						name: '雷神巧克力',
+						category: '伴手禮',
+						shop: '便利商店',
+						location: '日本各大便利商店',
+						imageUrl: 'https://images.unsplash.com/photo-1571406363064-7c9b7b5c07e8?w=400&h=300&fit=crop',
+						priority: '高',
+						purchased: false,
+						note: '黑色包裝的最經典'
+					},
+					{
+						id: '2',
+						name: '東京香蕉蛋糕',
+						category: '伴手禮',
+						shop: '東京車站',
+						location: '東京車站內販售',
+						imageUrl: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400&h=300&fit=crop',
+						priority: '高',
+						purchased: false,
+						note: '經典原味或巧克力口味'
+					},
+					{
+						id: '3',
+						name: '淺草寺人形燒',
+						category: '美食',
+						shop: '淺草寺周邊',
+						location: '淺草寺',
+						purchased: false,
+						priority: '中',
+						note: '現烤的最好吃'
+					}
+				];
+
+				// --- 購物清單 LocalStorage 管理 ---
+				const getShoppingListKey = () => `tokyo_shopping_list_${currentUser.value}`;
+
+				const loadShoppingList = () => {
+					const key = getShoppingListKey();
+					const saved = localStorage.getItem(key);
+					if (saved) {
+						shoppingList.value = JSON.parse(saved);
+					} else {
+						shoppingList.value = DEFAULT_SHOPPING_LIST;
+						saveShoppingList();
+					}
+					// 初始化篩選分類
+					activeShoppingCategories.value = [...shoppingCategories];
+				};
+
+				const saveShoppingList = () => {
+					localStorage.setItem(getShoppingListKey(), JSON.stringify(shoppingList.value));
+				};
+
+				const resetShoppingList = () => {
+					if(confirm("確定要重置為範例清單嗎？目前的修改將會遺失。")) {
+						localStorage.removeItem(getShoppingListKey());
+						loadShoppingList();
+					}
+				};
+
+				// --- 購物清單計算屬性 ---
+				const purchasedCount = computed(() => shoppingList.value.filter(i => i.purchased).length);
+				const purchasedPercentage = computed(() => shoppingList.value.length ? Math.round((purchasedCount.value / shoppingList.value.length) * 100) : 0);
+
+				const filteredShoppingList = computed(() => {
+					return shoppingList.value.filter(item => 
+						activeShoppingCategories.value.includes(item.category)
+					).sort((a, b) => {
+						// 未購買的排前面，然後按優先度排序
+						if (a.purchased !== b.purchased) return a.purchased ? 1 : -1;
+						
+						const priorityOrder = { '高': 1, '中': 2, '低': 3, '': 4 };
+						return priorityOrder[a.priority] - priorityOrder[b.priority];
+					});
+				});
+
+				// --- 購物清單操作函數 ---
+				const toggleShoppingCategory = (category) => {
+					const index = activeShoppingCategories.value.indexOf(category);
+					if (index === -1) {
+						activeShoppingCategories.value.push(category);
+					} else {
+						activeShoppingCategories.value.splice(index, 1);
+					}
+					saveShoppingList();
+					
+					// 滾動到選中的分類
+					scrollToCategory(category);
+				};
+
+				const toggleViewMode = () => {
+					viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid';
+				};
+
+				const clearAllShoppingChecks = () => {
+					if (shoppingList.value.length === 0) return;
+					
+					if (confirm(`確定要取消所有 ${shoppingList.value.length} 個項目的勾選嗎？`)) {
+						shoppingList.value.forEach(item => {
+							item.purchased = false;
+						});
+						saveShoppingList();
+					}
+				};
+
+				const toggleShoppingPurchased = (item) => {
+					item.purchased = !item.purchased;
+					saveShoppingList();
+				};
+
+				// --- 購物清單 CRUD ---
+				const openShoppingModal = (item = null) => {
+					if (item) {
+						isShoppingEditing.value = true;
+						shoppingForm.value = { ...item };
+					} else {
+						isShoppingEditing.value = false;
+						shoppingForm.value = { 
+							id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+							name: '',
+							category: '伴手禮',
+							shop: '',
+							location: '',
+							lat: null,
+							lng: null,
+							imageUrl: '',
+							priority: '',
+							purchased: false,
+							note: ''
+						};
+					}
+					showShoppingModal.value = true;
+				};
+
+				const editShoppingItem = (item) => {
+					openShoppingModal(item);
+				};
+
+				const saveShoppingItem = () => {
+					if (!shoppingForm.value.name) {
+						alert('請填寫項目名稱');
+						return;
+					}
+					
+					if (isShoppingEditing.value) {
+						const idx = shoppingList.value.findIndex(i => i.id === shoppingForm.value.id);
+						if (idx !== -1) {
+							shoppingList.value[idx] = { ...shoppingList.value[idx], ...shoppingForm.value };
+						}
+					} else {
+						shoppingList.value.push({ ...shoppingForm.value });
+					}
+					
+					saveShoppingList();
+					showShoppingModal.value = false;
+				};
+
+				const deleteShoppingItem = () => {
+					if (confirm("確定刪除此項目？")) {
+						shoppingList.value = shoppingList.value.filter(i => i.id !== shoppingForm.value.id);
+						saveShoppingList();
+						showShoppingModal.value = false;
+					}
+				};
+
+				// --- 圖片上傳處理 ---
+				const imageInput = ref(null);
+
+				const triggerImageUpload = () => {
+					imageInput.value?.click();
+				};
+
+				const handleImageUpload = (event) => {
+					const file = event.target.files[0];
+					if (!file) return;
+					
+					// 檢查檔案大小（限制 2MB）
+					if (file.size > 2 * 1024 * 1024) {
+						alert('圖片大小不能超過 2MB');
+						return;
+					}
+					
+					const reader = new FileReader();
+					reader.onload = (e) => {
+						shoppingForm.value.imageUrl = e.target.result;
+					};
+					reader.readAsDataURL(file);
+				};
+
+				// --- 地點處理 ---
+				const openShoppingMapModal = () => {
+					locationSearch.value = '';
+					locationSearchResults.value = [];
+					showLocationModal.value = true;
+				};
+
+				const searchLocation = () => {
+					// 簡易的模擬搜尋，實際應用中可以接入 Google Places API
+					if (locationSearch.value.length < 2) {
+						locationSearchResults.value = [];
+						return;
+					}
+					
+					// 模擬搜尋結果
+					locationSearchResults.value = [
+						{
+							id: '1',
+							name: `${locationSearch.value} (東京車站店)`,
+							address: '東京都千代田区丸の内1-9-1',
+							lat: 35.681236,
+							lng: 139.767125
+						},
+						{
+							id: '2',
+							name: `${locationSearch.value} (新宿店)`,
+							address: '東京都新宿区新宿3-38-1',
+							lat: 35.689487,
+							lng: 139.691711
+						}
+					];
+				};
+
+				const selectLocation = (result) => {
+					shoppingForm.value.location = `${result.name} - ${result.address}`;
+					shoppingForm.value.lat = result.lat;
+					shoppingForm.value.lng = result.lng;
+					showLocationModal.value = false;
+				};
+
+				const useEventLocation = (event) => {
+					shoppingForm.value.location = event.location;
+					shoppingForm.value.lat = event.lat;
+					shoppingForm.value.lng = event.lng;
+					showLocationModal.value = false;
+				};
+
+				const useCurrentLocation = () => {
+					if (navigator.geolocation) {
+						navigator.geolocation.getCurrentPosition(
+							(position) => {
+								shoppingForm.value.lat = position.coords.latitude;
+								shoppingForm.value.lng = position.coords.longitude;
+								shoppingForm.value.location = '目前位置';
+								showLocationModal.value = false;
+							},
+							() => {
+								alert('無法取得目前位置');
+							}
+						);
+					} else {
+						alert('瀏覽器不支援定位功能');
+					}
+				};
+
+				const clearShoppingLocation = () => {
+					shoppingForm.value.location = '';
+					shoppingForm.value.lat = null;
+					shoppingForm.value.lng = null;
+				};
+				
+				// --- 分類滾動相關 ---
+				const categoryScroll = ref(null);
+				const categoryTouchStartX = ref(0);
+				const categoryScrollStartX = ref(0);
+				const isCategoryDragging = ref(false);
+				const showLeftGradient = ref(false);
+				const showRightGradient = ref(true);
+
+				// 處理分類滾動
+				const handleCategoryScroll = () => {
+					updateScrollGradients();
+				};
+
+				// 更新滾動提示
+				const updateScrollGradients = () => {
+					if (!categoryScroll.value) return;
+					
+					const container = categoryScroll.value;
+					const scrollLeft = container.scrollLeft;
+					const scrollWidth = container.scrollWidth;
+					const clientWidth = container.clientWidth;
+					
+					// 顯示左側陰影（如果已經滾動到右側）
+					showLeftGradient.value = scrollLeft > 0;
+					
+					// 顯示右側陰影（如果還有內容在右側）
+					showRightGradient.value = scrollLeft + clientWidth < scrollWidth - 5; // 5像素的容錯值
+				};
+
+				// 觸控事件處理（改善移動端體驗）
+				const handleTouchStart = (e) => {
+					if (!categoryScroll.value) return;
+					
+					categoryTouchStartX.value = e.touches[0].clientX;
+					categoryScrollStartX.value = categoryScroll.value.scrollLeft;
+					isCategoryDragging.value = true;
+					
+					// 防止滾動傳播
+					e.stopPropagation();
+				};
+
+				const handleTouchMove = (e) => {
+					if (!isCategoryDragging.value || !categoryScroll.value) return;
+					
+					const touchX = e.touches[0].clientX;
+					const diffX = categoryTouchStartX.value - touchX;
+					
+					// 滾動容器
+					categoryScroll.value.scrollLeft = categoryScrollStartX.value + diffX;
+					
+					e.preventDefault();
+					e.stopPropagation();
+				};
+
+				const handleTouchEnd = () => {
+					isCategoryDragging.value = false;
+				};
+
+				// 滾動到指定分類
+				const scrollToCategory = (category) => {
+					if (!categoryScroll.value) return;
+					
+					const buttons = categoryScroll.value.querySelectorAll('.category-button');
+					const targetButton = Array.from(buttons).find(btn => 
+						btn.textContent.includes(category)
+					);
+					
+					if (targetButton) {
+						const container = categoryScroll.value;
+						const buttonRect = targetButton.getBoundingClientRect();
+						const containerRect = container.getBoundingClientRect();
+						
+						const scrollLeft = targetButton.offsetLeft - (containerRect.width - buttonRect.width) / 2;
+						
+						container.scrollTo({
+							left: scrollLeft,
+							behavior: 'smooth'
+						});
+						
+						// 更新滾動提示
+						setTimeout(updateScrollGradients, 300);
+					}
+				};
+
+				// 自動滾動到第一個有項目的分類
+				const autoScrollToFirstCategory = () => {
+					nextTick(() => {
+						setTimeout(() => {
+							// 找第一個有未購買項目的分類
+							const firstCategory = shoppingCategories.find(cat => 
+								shoppingList.value.some(item => 
+									item.category === cat && !item.purchased
+								)
+							);
+							
+							if (firstCategory) {
+								scrollToCategory(firstCategory);
+							}
+						}, 500);
+					});
+				};
+
+				// 監聽視窗大小變化
+				const handleResize = () => {
+					updateScrollGradients();
+				};
+				
+				// 滑鼠事件處理
+				const handleMouseMove = (e) => {
+					if (!isCategoryDragging.value || !categoryScroll.value) return;
+					
+					const mouseX = e.clientX;
+					const diffX = categoryTouchStartX.value - mouseX;
+					
+					// 滾動容器
+					categoryScroll.value.scrollLeft = categoryScrollStartX.value + diffX;
+					
+					e.preventDefault();
+				};
+
+				const handleCategoryMouseDown = (e) => {
+					if (!categoryScroll.value) return;
+					
+					categoryTouchStartX.value = e.clientX;
+					categoryScrollStartX.value = categoryScroll.value.scrollLeft;
+					isCategoryDragging.value = true;
+					
+					// 防止文字選取
+					e.preventDefault();
+				};
+
+				// 地圖連動
+				const openShoppingMap = (item) => {
+					if (item.lat && item.lng) {
+						// 有座標的話，直接在地圖上顯示
+						switchTab('map');
+						nextTick(() => {
+							setTimeout(() => {
+								initMap();
+								if (mapInstance.value) {
+									mapInstance.value.flyTo([item.lat, item.lng], 15, {
+										duration: 1,
+										easeLinearity: 0.25
+									});
+									
+									// 在地圖上添加標記
+									const marker = L.marker([item.lat, item.lng], {
+										icon: L.divIcon({
+											className: 'custom-div-icon',
+											html: `
+												<div class="marker-pin marker-bounce marker-glow" 
+													 style="background-color: ${shoppingCategoryColors[item.category] || '#ccc'}; transform: rotate(-45deg);"></div>
+												<i class="fa-solid fa-shopping-cart marker-icon text-white" style="transform: rotate(45deg);"></i>
+											`,
+											iconSize: [30, 42],
+											iconAnchor: [15, 42]
+										})
+									}).addTo(mapInstance.value);
+									
+									marker.bindPopup(`
+										<div class="font-bold">${item.name}</div>
+										<div class="text-xs text-gray-600">${item.category}</div>
+										<div class="text-xs text-gray-600">${item.shop || ''}</div>
+										<div class="text-xs text-blue-600 mt-1">
+											<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}" target="_blank">
+												開啟 Google Maps
+											</a>
+										</div>
+									`).openPopup();
+									
+									// 3秒後移除跳動效果
+									setTimeout(() => {
+										marker.remove();
+										updateMarkers();
+									}, 3000);
+								}
+							}, 300);
+						});
+					} else if (item.location) {
+						// 沒有座標但有地址，開啟 Google Maps
+						window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`, '_blank');
+					}
+				};
 
                 const updateGistData = async (newData) => {
                     if (!gistId.value || !githubToken.value) {
@@ -1511,6 +2450,7 @@
 						mapZoom.value = 11;
 					}
 				};
+					
 				
 				// 新增：調整地圖視圖以包含所有標記
 				const fitMapToMarkers = () => {
@@ -1852,6 +2792,9 @@
                     
                     // 載入行程資料
                     await loadData();
+					
+					// 載入購物清單
+					loadShoppingList();
                     
                     // 如果沒有 token，顯示提示
                     if (!hasToken.value) {
@@ -1862,6 +2805,30 @@
                     // 設定定時檢查
                     setInterval(pollData, POLL_INTERVAL);
                 });
+				
+				// 在 onMounted 中添加事件監聽
+				onMounted(() => {
+					// 初始更新滾動提示
+					setTimeout(updateScrollGradients, 300);
+					
+					// 監聽視窗大小變化
+					window.addEventListener('resize', handleResize);
+					
+					// 監聽購物清單變化，自動滾動
+					watch(shoppingList, () => {
+						nextTick(() => {
+							setTimeout(updateScrollGradients, 100);
+						});
+					}, { deep: true });
+					
+					// 自動滾動到第一個有項目的分類
+					autoScrollToFirstCategory();
+				});
+
+				// 在 onBeforeUnmount 中清理
+				onBeforeUnmount(() => {
+					window.removeEventListener('resize', handleResize);
+				});
 
                 // **地圖修正 1**: 監聽 currentTab 變化，切換到地圖時重新計算尺寸
                 watch(currentTab, (val) => {
@@ -1927,6 +2894,64 @@
 					openMap, resetMapView, fitMapToMarkers, formatTime, formatNumber, 
 					getCategoryColor, getCategoryIcon, toggleDarkMode,
 					toggleSettlementPaid, clearAllSettlementsPaid, toggleParticipant,
+					// 購物清單相關變數
+					shoppingList,
+					filteredShoppingList,
+					shoppingCategories,
+					shoppingCategoryColors,
+					showShoppingModal,
+					shoppingForm,
+					isShoppingEditing,
+					viewMode,
+					showShoppingFilter,
+					activeShoppingCategories,
+					purchasedCount,
+					purchasedPercentage,
+					savePackingList,  // ← 添加這一行
+					
+					// 地點選擇相關
+					showLocationModal,
+					locationSearch,
+					locationSearchResults,
+					
+					// 分類滾動相關
+					categoryScroll,
+					showLeftGradient,
+					showRightGradient,
+					isCategoryDragging,
+					
+					// 購物清單方法
+					openShoppingModal,
+					editShoppingItem,
+					saveShoppingItem,
+					deleteShoppingItem,
+					toggleShoppingPurchased,
+					clearAllShoppingChecks,
+					toggleShoppingCategory,
+					toggleViewMode,
+					resetShoppingList,
+					openShoppingMap,
+					
+					// 圖片和地點方法
+					triggerImageUpload,
+					handleImageUpload,
+					openShoppingMapModal,
+					searchLocation,
+					selectLocation,
+					useEventLocation,
+					useCurrentLocation,
+					clearShoppingLocation,
+					
+					// 分類滾動方法
+					handleCategoryScroll,
+					handleTouchStart,
+					handleTouchMove,
+					handleTouchEnd,
+					handleMouseMove,
+					handleCategoryMouseDown,
+					updateScrollGradients,
+					scrollToCategory,
+					autoScrollToFirstCategory,
 					// 行李清單方法
 					openPackingModal, editPackingItem, savePackingItem, deletePackingItem, resetPackingList, getCarryTypeIcon
 				};
