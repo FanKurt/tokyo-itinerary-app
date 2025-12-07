@@ -761,9 +761,6 @@
 						<i class="fa-solid fa-cart-shopping text-4xl text-gray-300 dark:text-slate-600 mb-4"></i>
 						<h4 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">清單是空的...</h4>
 						<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">開始新增你想購買的伴手禮或必吃美食！</p>
-						<button @click="resetShoppingList" class="bg-tokyo-600 text-white px-6 py-2 rounded-full text-sm font-bold">
-							載入範例清單
-						</button>
 					</div>
 				</div>
 			</div>
@@ -782,6 +779,7 @@
 						<div>
 							<label class="block text-sm font-bold mb-2">圖片</label>
 							<div class="flex items-center gap-4">
+								<!-- 點擊這個 div 應該觸發圖片上傳 -->
 								<div class="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-800 flex items-center justify-center cursor-pointer hover:opacity-90 transition"
 									 @click="triggerImageUpload">
 									<div v-if="shoppingForm.imageUrl" class="w-full h-full">
@@ -792,8 +790,9 @@
 										<p class="text-xs text-gray-400 mt-1">點擊上傳</p>
 									</div>
 								</div>
+								<!-- 隱藏的檔案輸入 -->
+								<input type="file" ref="imageInput" @change="handleImageUpload" accept="image/*" capture="environment" class="hidden">
 								<div class="flex-1">
-									<input type="file" ref="imageInput" @change="handleImageUpload" accept="image/*" class="hidden">
 									<input v-model="shoppingForm.imageUrl" placeholder="或輸入圖片網址" class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 dark:text-white text-sm">
 									<p class="text-xs text-gray-400 mt-1">支援 JPG、PNG，或圖片網址</p>
 								</div>
@@ -1712,24 +1711,44 @@
 				const imageInput = ref(null);
 
 				const triggerImageUpload = () => {
-					imageInput.value?.click();
+					console.log('觸發圖片上傳'); // 用於調試
+					if (imageInput.value) {
+						imageInput.value.click();
+					} else {
+						console.error('imageInput ref 未找到');
+					}
 				};
 
 				const handleImageUpload = (event) => {
+					console.log('處理圖片上傳', event.target.files); // 用於調試
 					const file = event.target.files[0];
 					if (!file) return;
 					
-					// 檢查檔案大小（限制 2MB）
-					if (file.size > 2 * 1024 * 1024) {
-						alert('圖片大小不能超過 2MB');
+					// 檢查檔案類型
+					if (!file.type.match('image.*')) {
+						alert('請選擇圖片檔案 (JPG, PNG 等)');
+						return;
+					}
+					
+					// 檢查檔案大小（限制 5MB 以適應手機照片）
+					if (file.size > 5 * 1024 * 1024) {
+						alert('圖片大小不能超過 5MB');
 						return;
 					}
 					
 					const reader = new FileReader();
 					reader.onload = (e) => {
 						shoppingForm.value.imageUrl = e.target.result;
+						console.log('圖片已載入:', e.target.result.substring(0, 50) + '...');
+					};
+					reader.onerror = (e) => {
+						console.error('讀取檔案錯誤:', e);
+						alert('讀取圖片失敗，請重試');
 					};
 					reader.readAsDataURL(file);
+					
+					// 重置 input，這樣可以再次選擇同一張圖片
+					event.target.value = '';
 				};
 
 				// --- 地點處理 ---
@@ -1934,8 +1953,12 @@
 					e.preventDefault();
 				};
 
-				// 地圖連動
 				const openShoppingMap = (item) => {
+					if (!item) {
+						console.error('openShoppingMap: item is undefined');
+						return;
+					}
+					
 					if (item.lat && item.lng) {
 						// 有座標的話，直接在地圖上顯示
 						switchTab('map');
@@ -1963,11 +1986,11 @@
 									}).addTo(mapInstance.value);
 									
 									marker.bindPopup(`
-										<div class="font-bold">${item.name}</div>
-										<div class="text-xs text-gray-600">${item.category}</div>
+										<div class="font-bold">${item.name || '未命名'}</div>
+										<div class="text-xs text-gray-600">${item.category || ''}</div>
 										<div class="text-xs text-gray-600">${item.shop || ''}</div>
 										<div class="text-xs text-blue-600 mt-1">
-											<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}" target="_blank">
+											<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location || '')}" target="_blank">
 												開啟 Google Maps
 											</a>
 										</div>
@@ -1984,6 +2007,8 @@
 					} else if (item.location) {
 						// 沒有座標但有地址，開啟 Google Maps
 						window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`, '_blank');
+					} else {
+						alert('此項目沒有地點資訊');
 					}
 				};
 
@@ -2900,6 +2925,7 @@
 					openShoppingMap,
 					
 					// 圖片和地點方法
+					imageInput,
 					triggerImageUpload,
 					handleImageUpload,
 					openShoppingMapModal,
