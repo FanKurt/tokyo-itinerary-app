@@ -674,18 +674,43 @@
 								</button>
 							</div>
 							
-							<!-- 內容區域 -->
+							<!-- 內容區域 - 修復這裡 -->
 							<div class="p-3">
 								<h4 class="font-bold text-gray-800 dark:text-gray-100 text-sm mb-1 line-clamp-1">{{ item.name }}</h4>
 								
+								<!-- 店家資訊 -->
+								<p v-if="item.shop" class="text-xs text-gray-500 dark:text-gray-400 mb-1 line-clamp-1">
+									<i class="fa-solid fa-store mr-1"></i>{{ item.shop }}
+								</p>
+								
+								<!-- 地點 -->
+								<p v-if="item.location" class="text-xs text-gray-500 dark:text-gray-400 mb-1 line-clamp-1">
+									<i class="fa-solid fa-location-dot mr-1"></i>{{ item.location }}
+								</p>
+								
+								<!-- 優先度 -->
+								<div v-if="item.priority" class="inline-block">
+									<span :class="[
+										'text-[10px] px-2 py-0.5 rounded-full font-bold',
+										item.priority === '高' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300' :
+										item.priority === '中' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300' :
+										'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300'
+									]">
+										{{ item.priority }}優先
+									</span>
+								</div>
+								
 								<!-- 如果只有檔名，顯示提醒 -->
 								<div v-if="item.imageName && !item.imagePreview" 
-									 class="text-xs text-amber-600 dark:text-amber-400 mb-2 flex items-center">
+									 class="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-center">
 									<i class="fa-solid fa-info-circle mr-1"></i>
 									已選擇圖片，需重新上傳才能顯示
 								</div>
 								
-								<!-- 其他內容... -->
+								<!-- 備註 -->
+								<p v-if="item.note" class="text-xs text-gray-400 dark:text-gray-500 mt-2 line-clamp-2">
+									{{ item.note }}
+								</p>
 							</div>
 						</div>
 					</div>
@@ -698,57 +723,81 @@
 						<div class="flex gap-3">
 							<!-- 圖片 -->
 							<div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-700 flex-shrink-0">
-								<div v-if="item.imageUrl" class="w-full h-full">
+								<!-- 優先使用 imagePreview -->
+								<div v-if="item.imagePreview" class="w-full h-full">
+									<img :src="item.imagePreview" :alt="item.name" class="w-full h-full object-cover">
+								</div>
+								<!-- 如果有 imageId，顯示載入狀態 -->
+								<div v-else-if="item.imageId" class="w-full h-full flex items-center justify-center">
+									<i class="fa-solid fa-spinner fa-spin text-xl text-tokyo-500"></i>
+								</div>
+								<!-- 如果只有 imageUrl（URL格式） -->
+								<div v-else-if="item.imageUrl && item.imageUrl.startsWith('http')" class="w-full h-full">
 									<img :src="item.imageUrl" :alt="item.name" class="w-full h-full object-cover">
 								</div>
+								<!-- 完全沒有圖片 -->
 								<div v-else class="w-full h-full flex items-center justify-center">
 									<i class="fa-solid fa-image text-xl text-gray-300 dark:text-slate-600"></i>
 								</div>
 							</div>
 							
-							<!-- 內容 -->
+							<!-- 內容 - 修復這裡 -->
 							<div class="flex-1 min-w-0">
 								<div class="flex justify-between items-start mb-1">
 									<h4 class="font-bold text-gray-800 dark:text-gray-100 text-sm line-clamp-1">{{ item.name }}</h4>
-									<button @click="toggleShoppingPurchased(item)" class="ml-2">
+									<button @click.stop="toggleShoppingPurchased(item)" 
+											class="w-5 h-5 flex-shrink-0 ml-2">
 										<i class="fa-solid" :class="item.purchased ? 'fa-check-circle text-emerald-500' : 'fa-circle text-gray-300'"></i>
 									</button>
 								</div>
 								
+								<!-- 分類和優先度 -->
 								<div class="flex items-center gap-2 mb-1">
-									<span class="text-[10px] px-2 py-0.5 rounded-full text-white" 
+									<span class="text-[10px] px-2 py-0.5 rounded-full font-bold text-white" 
 										  :style="{ backgroundColor: shoppingCategoryColors[item.category] }">
 										{{ item.category }}
 									</span>
-									<span v-if="item.priority" class="text-[10px] px-2 py-0.5 rounded-full" 
-										  :class="item.priority === '高' ? 'bg-red-100 text-red-600' : 
-												 item.priority === '中' ? 'bg-amber-100 text-amber-600' : 
-												 'bg-blue-100 text-blue-600'">
+									
+									<span v-if="item.priority" :class="[
+										'text-[10px] px-2 py-0.5 rounded-full font-bold',
+										item.priority === '高' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300' :
+										item.priority === '中' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300' :
+										'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300'
+									]">
 										{{ item.priority }}
 									</span>
 								</div>
 								
-								<div v-if="item.shop" class="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
-									<i class="fa-solid fa-store mr-1.5 text-tokyo-500"></i>
-									<span class="line-clamp-1">{{ item.shop }}</span>
-								</div>
+								<!-- 店家資訊 -->
+								<p v-if="item.shop" class="text-xs text-gray-500 dark:text-gray-400 mb-1 line-clamp-1">
+									<i class="fa-solid fa-store mr-1"></i>{{ item.shop }}
+								</p>
 								
-								<div v-if="item.location" class="flex items-center text-xs text-gray-500 dark:text-gray-400">
-									<i class="fa-solid fa-location-dot mr-1.5 text-blue-500"></i>
-									<span class="line-clamp-1">{{ item.location }}</span>
-									<button @click="openShoppingMap(item)" class="ml-2 text-blue-500 hover:text-blue-600">
-										<i class="fa-solid fa-map"></i>
+								<!-- 地點 -->
+								<p v-if="item.location" class="text-xs text-gray-500 dark:text-gray-400 mb-1 line-clamp-1">
+									<i class="fa-solid fa-location-dot mr-1"></i>{{ item.location }}
+								</p>
+								
+								<!-- 備註 -->
+								<p v-if="item.note" class="text-xs text-gray-400 dark:text-gray-500 line-clamp-2">
+									{{ item.note }}
+								</p>
+								
+								<!-- 操作按鈕 -->
+								<div class="flex gap-2 mt-2">
+									<button @click.stop="editShoppingItem(item)" 
+											class="text-xs text-tokyo-600 dark:text-tokyo-400 hover:text-tokyo-700">
+										<i class="fa-solid fa-pen mr-1"></i>編輯
+									</button>
+									<button v-if="item.location" @click.stop="openShoppingMap(item)" 
+											class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700">
+										<i class="fa-solid fa-map mr-1"></i>地圖
 									</button>
 								</div>
 							</div>
 						</div>
-						
-						<div v-if="item.note" class="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700">
-							<p class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2">{{ item.note }}</p>
-						</div>
 					</div>
 				</div>
-
 				<!-- 空狀態 -->
 				<div v-if="filteredShoppingList.length === 0" class="text-center py-10 px-4">
 					<div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-8">
@@ -793,7 +842,6 @@
 									<div v-else class="text-center p-2">
 										<i class="fa-solid fa-image text-2xl text-gray-400 dark:text-gray-600"></i>
 										<p class="text-xs text-gray-400 mt-1">點擊上傳</p>
-										<p class="text-[10px] text-gray-400 mt-1">JPG/PNG ≤ 10MB</p>
 									</div>
 								</div>
 								<!-- 隱藏的檔案輸入 -->
@@ -846,8 +894,9 @@
 							<div class="flex gap-2">
 								<input v-model="shoppingForm.location" placeholder="地址或地標" 
 									   class="flex-1 bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-transparent focus:border-tokyo-500 outline-none dark:text-white">
-								<button type="button" @click="openShoppingMapModal" class="w-12 bg-gray-100 dark:bg-slate-800 rounded-xl flex items-center justify-center">
-									<i class="fa-solid fa-map text-gray-600 dark:text-gray-400"></i>
+								<button type="button" @click="openShoppingMapModal" 
+										class="min-w-[60px] h-[48px] bg-gray-100 dark:bg-slate-800 rounded-xl flex items-center justify-center active:scale-95 transition-transform">
+									<i class="fa-solid fa-map text-gray-600 dark:text-gray-400 text-lg"></i>
 								</button>
 							</div>
 							<div v-if="shoppingForm.lat && shoppingForm.lng" class="flex items-center gap-2 mt-1">
@@ -1629,6 +1678,29 @@
 				  // 初始化篩選分類
 				  activeShoppingCategories.value = [...shoppingCategories];
 				};
+				
+				// 新增：載入所有購物清單項目的圖片
+				const loadAllShoppingImages = async () => {
+				  for (const item of shoppingList.value) {
+					// 如果已經有 imagePreview，跳過
+					if (item.imagePreview) continue;
+					
+					// 如果有 imageId，從 IndexedDB 載入
+					if (item.imageId) {
+					  try {
+						const imageData = await loadShoppingItemImage(item);
+						if (imageData) {
+						  item.imagePreview = imageData;
+						}
+					  } catch (error) {
+						console.error('載入圖片失敗:', error, item);
+					  }
+					}
+				  }
+				  
+				  // 保存更新
+				  saveShoppingList();
+				};
 
 				const saveShoppingList = () => {
 					localStorage.setItem(getShoppingListKey(), JSON.stringify(shoppingList.value));
@@ -1800,10 +1872,20 @@
 				// 新增：在購物清單載入時，可以批量載入圖片
 				const enhanceShoppingListWithImages = async () => {
 				  for (const item of shoppingList.value) {
-					if (item.imageId && !item.imagePreview) {
+					// 跳過已有 imagePreview 的項目
+					if (item.imagePreview) continue;
+					
+					// 嘗試從各種來源載入圖片
+					if (item.imageId) {
+					  // 從 IndexedDB 載入
 					  const imageData = await loadShoppingItemImage(item);
 					  if (imageData) {
 						item.imagePreview = imageData;
+					  }
+					} else if (item.imageUrl) {
+					  // 檢查是否為 Base64 或 URL
+					  if (item.imageUrl.startsWith('data:') || item.imageUrl.startsWith('http')) {
+						item.imagePreview = item.imageUrl;
 					  }
 					}
 				  }
@@ -2938,7 +3020,10 @@
                     await loadData();
 					
 					// 載入購物清單
-					loadShoppingList();
+					await loadShoppingList();
+					
+					// 載入所有圖片
+					await loadAllShoppingImages();
                     
                     // 如果沒有 token，顯示提示
                     if (!hasToken.value) {
@@ -2959,10 +3044,11 @@
 					window.addEventListener('resize', handleResize);
 					
 					// 監聽購物清單變化，自動滾動
-					watch(shoppingList, () => {
-						nextTick(() => {
-							setTimeout(updateScrollGradients, 100);
-						});
+					watch(shoppingList, async (newList) => {
+					  // 延遲載入圖片，避免阻塞 UI
+					  setTimeout(async () => {
+						await loadAllShoppingImages();
+					  }, 100);
 					}, { deep: true });
 					
 					// 自動滾動到第一個有項目的分類
