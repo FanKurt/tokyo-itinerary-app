@@ -789,7 +789,7 @@
 											class="text-xs text-tokyo-600 dark:text-tokyo-400 hover:text-tokyo-700">
 										<i class="fa-solid fa-pen mr-1"></i>編輯
 									</button>
-									<button v-if="item.location" @click.stop="openShoppingMap(item)" 
+									<button v-if="item.location" @click.stop="() => openShoppingMap(item)" 
 											class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700">
 										<i class="fa-solid fa-map mr-1"></i>地圖
 									</button>
@@ -825,40 +825,69 @@
 				<!-- 可滾動的表單區域 -->
 				<form @submit.prevent="saveShoppingItem" class="flex-1 overflow-y-auto space-y-4 pb-4">
 				  <!-- 圖片上傳/預覽 -->
-				  <div class="flex-shrink-0">
+				<div class="flex-shrink-0">
 					<label class="block text-sm font-bold mb-2">圖片</label>
-					<div class="flex flex-col sm:flex-row items-center gap-4">
-					  <!-- 圖片預覽區域 -->
-					  <div class="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-slate-800 flex items-center justify-center cursor-pointer hover:opacity-90 transition"
-							 @click="triggerImageUpload">
-							 
-							<!-- 如果有圖片預覽 -->
-							<div v-if="shoppingForm.imagePreview" class="w-full h-full">
-								<img :src="shoppingForm.imagePreview" class="w-full h-full object-cover">
+					<div class="flex flex-col items-center gap-3">
+						<!-- 圖片預覽/上傳區域 -->
+						<div class="w-full max-w-xs mx-auto">
+							<div class="w-full h-48 rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 border-2 border-dashed border-gray-300 dark:border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+								 @click="triggerImageUpload">
+								
+								<!-- 如果有圖片預覽 -->
+								<div v-if="shoppingForm.imagePreview" class="w-full h-full relative">
+									<img :src="shoppingForm.imagePreview" :alt="shoppingForm.name || '上傳的圖片'" class="w-full h-full object-cover">
+									<div class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+										<div class="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-bold text-gray-700 flex items-center gap-2">
+											<i class="fa-solid fa-camera"></i>
+											<span>更換圖片</span>
+										</div>
+									</div>
+								</div>
+								
+								<!-- 從 localStorage 載入時（只有檔名） -->
+								<div v-else-if="shoppingForm.imageName" class="text-center p-4">
+									<i class="fa-solid fa-image text-4xl text-tokyo-500 mb-3"></i>
+									<p class="text-sm font-medium text-gray-600 dark:text-gray-300 line-clamp-1">
+										{{ shoppingForm.imageName }}
+									</p>
+									<p class="text-xs text-gray-400 mt-2">點擊重新選擇圖片</p>
+								</div>
+								
+								<!-- 完全沒有圖片 -->
+								<div v-else class="text-center p-4">
+									<i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-400 dark:text-gray-600 mb-3"></i>
+									<p class="text-sm font-medium text-gray-600 dark:text-gray-300">點擊上傳圖片</p>
+									<p class="text-xs text-gray-400 mt-1">支援 JPG、PNG 格式</p>
+									<p class="text-xs text-gray-400">建議尺寸 800x800px</p>
+								</div>
 							</div>
 							
-							<!-- 從 localStorage 載入時（只有檔名） -->
-							<div v-else-if="shoppingForm.imageName" class="text-center p-2">
-								<i class="fa-solid fa-image text-2xl text-tokyo-500"></i>
-								<p class="text-xs text-gray-500 mt-1 truncate">{{ shoppingForm.imageName }}</p>
-								<p class="text-[10px] text-gray-400 mt-1">點擊重新選擇</p>
-							</div>
-							
-							<!-- 完全沒有圖片 -->
-							<div v-else class="text-center p-2">
-								<i class="fa-solid fa-image text-2xl text-gray-400 dark:text-gray-600"></i>
-								<p class="text-xs text-gray-400 mt-1">點擊上傳</p>
+							<!-- 圖片操作按鈕（如果有圖片） -->
+							<div v-if="shoppingForm.imagePreview || shoppingForm.imageName" 
+								 class="flex justify-center gap-2 mt-3">
+								<button type="button" @click="triggerImageUpload" 
+										class="px-3 py-1.5 bg-tokyo-50 dark:bg-tokyo-900/30 text-tokyo-600 dark:text-tokyo-400 rounded-lg text-xs font-bold">
+									<i class="fa-solid fa-rotate mr-1"></i>更換
+								</button>
+								<button type="button" @click="clearImage" 
+										class="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-xs font-bold">
+									<i class="fa-solid fa-trash mr-1"></i>移除
+								</button>
 							</div>
 						</div>
-					  <!-- 隱藏的檔案輸入 -->
-					  <input type="file" ref="imageInput" @change="handleImageUpload" accept="image/*" class="hidden">
-					  <div class="w-full sm:flex-1 mt-2 sm:mt-0">
-						<input v-model="shoppingForm.imageUrl" placeholder="或輸入圖片網址" 
-							   class="w-full bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 dark:text-white text-sm">
-						<p class="text-xs text-gray-400 mt-1">支援 JPG、PNG，或圖片網址</p>
-					  </div>
+						
+						<!-- 隱藏的檔案輸入 -->
+						<input type="file" ref="imageInput" @change="handleImageUpload" accept="image/*" class="hidden">
+						
+						<!-- 圖片上傳提示 -->
+						<div class="w-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-lg p-3">
+							<p class="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-2">
+								<i class="fa-solid fa-info-circle mt-0.5 flex-shrink-0"></i>
+								<span>圖片會壓縮儲存，不會上傳到網路，僅保存在您的裝置中</span>
+							</p>
+						</div>
 					</div>
-				  </div>
+				</div>
 				  
 				  <!-- 名稱和分類 - 改為響應式布局 -->
 				  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-shrink-0">
@@ -966,14 +995,16 @@
 						<!-- 近期行程地點 -->
 						<div v-else>
 							<p class="text-sm font-bold text-gray-400 mb-2">行程中的地點</p>
-							<div v-for="event in schedule" :key="event.id" 
-								 v-if="event.location"
-								 @click="useEventLocation(event)"
-								 class="p-3 border-b border-gray-100 dark:border-slate-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800">
-								<p class="font-medium dark:text-white">{{ event.title }}</p>
-								<p class="text-xs text-gray-500 dark:text-gray-400">{{ event.location }}</p>
-							</div>
-							<div v-if="schedule.filter(e => e.location).length === 0" class="text-center py-4 text-gray-400">
+							<!-- 修改這裡：將 event 重命名為 scheduleEvent -->
+							<template v-for="event in schedule" :key="event.id">
+								<div v-if="event.location"
+									 @click="useEventLocation(event)"
+									 class="p-3 border-b border-gray-100 dark:border-slate-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800">
+									<p class="font-medium dark:text-white">{{ event.title }}</p>
+									<p class="text-xs text-gray-500 dark:text-gray-400">{{ event.location }}</p>
+								</div>
+							</template>
+							<div v-if="schedule.filter(event => event.location).length === 0" class="text-center py-4 text-gray-400">
 								暫無行程地點
 							</div>
 						</div>
@@ -1787,7 +1818,6 @@
 							location: '',
 							lat: null,
 							lng: null,
-							imageUrl: '', // 只存 URL 或路徑
 							priority: '',
 							purchased: false,
 							note: ''
@@ -1874,6 +1904,26 @@
 					alert('儲存失敗，請再試一次');
 				  }
 				};
+				// 新增：處理地圖點擊的函數
+				const handleMapClick = (item) => {
+					if (!item) {
+						console.error('handleMapClick: item is undefined');
+						return;
+					}
+					
+					console.log('點擊地圖按鈕，項目:', item);
+					
+					// 複製項目以避免引用問題
+					const itemCopy = JSON.parse(JSON.stringify(item));
+					
+					// 確保有必要的屬性
+					if (!itemCopy.location) {
+						alert('此項目沒有地點資訊');
+						return;
+					}
+					
+					openShoppingMap(itemCopy);
+				};
 				
 				// 新增：在購物清單載入時，可以批量載入圖片
 				const enhanceShoppingListWithImages = async () => {
@@ -1881,22 +1931,15 @@
 					// 跳過已有 imagePreview 的項目
 					if (item.imagePreview) continue;
 					
-					// 嘗試從各種來源載入圖片
+					// 只從 IndexedDB 載入
 					if (item.imageId) {
-					  // 從 IndexedDB 載入
 					  const imageData = await loadShoppingItemImage(item);
 					  if (imageData) {
 						item.imagePreview = imageData;
 					  }
-					} else if (item.imageUrl) {
-					  // 檢查是否為 Base64 或 URL
-					  if (item.imageUrl.startsWith('data:') || item.imageUrl.startsWith('http')) {
-						item.imagePreview = item.imageUrl;
-					  }
 					}
 				  }
 				  
-				  // 保存更新後的清單
 				  saveShoppingList();
 				};
 				
@@ -2034,11 +2077,6 @@
 						const blob = new Blob([imageData.data], { type: imageData.type || 'image/jpeg' });
 						return URL.createObjectURL(blob);
 					  }
-					}
-					
-					// 2. 如果有外部 URL（網址）
-					if (item.imageUrl && item.imageUrl.startsWith('http')) {
-					  return item.imageUrl;
 					}
 					
 					// 3. 舊格式兼容：如果有 Base64 數據
@@ -2256,18 +2294,40 @@
 				};
 
 				const openShoppingMap = (item) => {
-					if (!item) {
-						console.error('openShoppingMap: item is undefined');
+					console.log('📍 Opening map for item:', item);
+					
+					// 加強錯誤處理
+					if (!item || typeof item !== 'object') {
+						console.error('❌ openShoppingMap: Invalid item parameter', item);
+						alert('無法取得項目資訊，請重新選擇');
 						return;
 					}
 					
-					if (item.lat && item.lng) {
-						// 有座標的話，直接在地圖上顯示
+					// 檢查是否有地點資訊
+					if (!item.location) {
+						console.warn('⚠️ Item has no location:', item);
+						alert('此項目沒有地點資訊');
+						return;
+					}
+					
+					// 檢查座標是否有效
+					const hasValidCoords = item.lat && item.lng && 
+										  !isNaN(parseFloat(item.lat)) && 
+										  !isNaN(parseFloat(item.lng));
+					
+					if (hasValidCoords) {
+						// 切換到地圖分頁
 						switchTab('map');
+						
+						// 給地圖一些時間初始化
 						nextTick(() => {
 							setTimeout(() => {
 								initMap();
+								
 								if (mapInstance.value) {
+									console.log('🗺️ Flying to coordinates:', item.lat, item.lng);
+									
+									// 飛到指定位置
 									mapInstance.value.flyTo([item.lat, item.lng], 15, {
 										duration: 1,
 										easeLinearity: 0.25
@@ -2308,6 +2368,7 @@
 						});
 					} else if (item.location) {
 						// 沒有座標但有地址，開啟 Google Maps
+						console.log('🌐 Opening Google Maps for location:', item.location);
 						window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`, '_blank');
 					} else {
 						alert('此項目沒有地點資訊');
@@ -2732,8 +2793,32 @@
 						}
 					});
 					
-					// 強制重新繪製地圖
-					mapInstance.value._renderer._update();
+					// 強制重新繪製地圖 - 添加錯誤檢查
+					if (mapInstance.value && mapInstance.value._renderer) {
+						try {
+							mapInstance.value._renderer._update();
+						} catch (error) {
+							console.warn('⚠️ Error updating renderer:', error);
+							// 嘗試使用其他方法重繪
+							if (mapInstance.value.invalidateSize) {
+								setTimeout(() => {
+									mapInstance.value.invalidateSize();
+								}, 100);
+							}
+						}
+					} else {
+						console.warn('⚠️ Map renderer not available, deferring update');
+						// 延遲重試
+						setTimeout(() => {
+							if (mapInstance.value && mapInstance.value._renderer) {
+								try {
+									mapInstance.value._renderer._update();
+								} catch (error) {
+									console.warn('⚠️ Deferred update also failed:', error);
+								}
+							}
+						}, 500);
+					}
 				};
                 
                 // 新增：重置地圖視圖
@@ -2849,7 +2934,13 @@
 					// 確保標記更新完成後，地圖重新渲染
 					setTimeout(() => {
 						if (mapInstance.value) {
-							mapInstance.value._renderer._update();
+							try {
+								if (mapInstance.value._renderer && mapInstance.value._renderer._update) {
+									mapInstance.value._renderer._update();
+								}
+							} catch (e) {
+								console.error('Error updating map renderer:', e);
+							}
 						}
 					}, 100);
 				};
