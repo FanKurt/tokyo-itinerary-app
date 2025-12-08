@@ -1542,14 +1542,25 @@
                 };
 
                 const groupedPackingList = computed(() => {
-                    const groups = {};
-                    packingList.value.forEach(item => {
-                        const type = item.carry_type || '其他';
-                        if (!groups[type]) groups[type] = [];
-                        groups[type].push(item);
-                    });
-                    return groups;
-                });
+					// 定義固定的分組順序
+					const groupOrder = ['手提行李', '託運行李', '其他'];
+					const groups = {};
+					
+					// 初始化所有分組
+					groupOrder.forEach(type => {
+						groups[type] = [];
+					});
+					
+					// 填充項目到對應分組
+					packingList.value.forEach(item => {
+						const type = item.carry_type || '其他';
+						if (groups[type]) {
+							groups[type].push(item);
+						}
+					});
+					
+					return groups;
+				});
 
                 const packedCount = computed(() => packingList.value.filter(i => i.checked).length);
                 const packedPercentage = computed(() => packingList.value.length ? Math.round((packedCount.value / packingList.value.length) * 100) : 0);
@@ -2364,20 +2375,30 @@
                                 animation: 150,
                                 ghostClass: 'sortable-ghost',
                                 onEnd: (evt) => {
-                                    const groupType = el.getAttribute('data-group-type');
-                                    const newOrderIds = Array.from(el.children).map(child => child.getAttribute('data-id'));
-                                    
-                                    // 重新排序邏輯：
-                                    // 1. 找出所有不屬於此分類的項目 (保持不動)
-                                    // 2. 找出此分類的項目，並依照新的 DOM 順序重新排列
-                                    // 3. 合併回 packingList
-                                    const itemMap = new Map(packingList.value.map(i => [i.id, i]));
-                                    const otherItems = packingList.value.filter(i => (i.carry_type || '其他') !== groupType);
-                                    const sortedGroupItems = newOrderIds.map(id => itemMap.get(id)).filter(Boolean);
-                                    
-                                    packingList.value = [...otherItems, ...sortedGroupItems];
-                                    savePackingList();
-                                }
+									const groupType = el.getAttribute('data-group-type');
+									const newOrderIds = Array.from(el.children).map(child => child.getAttribute('data-id'));
+									
+									const itemMap = new Map(packingList.value.map(i => [i.id, i]));
+									
+									// 按照固定的分組順序重建列表
+									const groupOrder = ['手提行李', '託運行李', '其他'];
+									const newList = [];
+									
+									groupOrder.forEach(group => {
+										if (group === groupType) {
+											// 當前被拖曳的分組，使用新順序
+											const sortedGroupItems = newOrderIds.map(id => itemMap.get(id)).filter(Boolean);
+											newList.push(...sortedGroupItems);
+										} else {
+											// 其他分組保持原順序
+											const groupItems = packingList.value.filter(i => (i.carry_type || '其他') === group);
+											newList.push(...groupItems);
+										}
+									});
+									
+									packingList.value = newList;
+									savePackingList();
+								}
                             }));
                         });
                     }
@@ -2393,34 +2414,46 @@
                                 animation: 150,
                                 ghostClass: 'sortable-ghost',
                                 onEnd: (evt) => {
-                                    // 購物清單可能有篩選，邏輯較複雜
-                                    // 策略：找出當前顯示的所有項目 ID，將它們從原清單取出，
-                                    // 依照新順序填回原本這些項目所在的索引位置 (保持相對順序)
-                                    const newOrderIds = Array.from(el.children).map(child => child.getAttribute('data-id'));
-                                    
-                                    // 建立 ID -> Item 的映射
-                                    const currentList = [...shoppingList.value];
-                                    const itemMap = new Map(currentList.map(i => [i.id, i]));
-                                    
-                                    // 找出可見項目在原清單中的索引位置，並由小到大排序
-                                    const visibleIndices = [];
-                                    newOrderIds.forEach(id => {
-                                        const idx = currentList.findIndex(i => i.id === id);
-                                        if (idx !== -1) visibleIndices.push(idx);
-                                    });
-                                    visibleIndices.sort((a, b) => a - b);
-                                    
-                                    // 將依照新順序的項目，填回這些索引位置
-                                    newOrderIds.forEach((id, i) => {
-                                        const originalIndex = visibleIndices[i];
-                                        if (originalIndex !== undefined) {
-                                            currentList[originalIndex] = itemMap.get(id);
-                                        }
-                                    });
-                                    
-                                    shoppingList.value = currentList;
-                                    saveShoppingList();
-                                }
+									const newOrderIds = Array.from(el.children).map(child => child.getAttribute('data-id'));
+									
+									// 建立 ID -> Item 的映射
+									const itemMap = new Map(shoppingList.value.map(i => [i.id, i]));
+									
+									// 獲取當前篩選後可見的項目
+									const visibleItems = filteredShoppingList.value.map(item => item.id);
+									
+									// 獲取不可見的項目(未篩選出來的)
+									const invisibleItems = shoppingList.value.filter(item => !visibleItems.includes(item.id));
+									
+									// 按照新的拖曳順序重建可見項目列表
+									const reorderedVisibleItems = newOrderIds
+										.map(id => itemMap.get(id))
+										.filter(Boolean);
+									
+									// 找出原始列表中第一個可見項目的位置
+									const firstVisibleIndex = shoppingList.value.findIndex(item => 
+										visibleItems.includes(item.id)
+									);
+									
+									// 重建完整列表：不可見項目(前) + 重新排序的可見項目 + 不可見項目(後)
+									const invisibleBefore = invisibleItems.filter((item, idx) => {
+										const originalIdx = shoppingList.value.indexOf(item);
+										return originalIdx < firstVisibleIndex;
+									});
+									
+									const invisibleAfter = invisibleItems.filter((item, idx) => {
+										const originalIdx = shoppingList.value.indexOf(item);
+										return originalIdx >= firstVisibleIndex;
+									});
+									
+									shoppingList.value = [
+										...invisibleBefore,
+										...reorderedVisibleItems,
+										...invisibleAfter
+									];
+									
+									saveShoppingList();
+								}
                             }));
                         }
                     }
