@@ -31,6 +31,8 @@
     <!-- Leaflet Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- SortableJS (新增) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
@@ -114,6 +116,11 @@
 		.leaflet-marker-icon {
 			transition: transform 0.3s ease;
 		}
+		
+		/* SortableJS 拖曳樣式 (新增) */
+        .sortable-ghost { opacity: 0.4; background-color: #f3f4f6; }
+        .dark .sortable-ghost { background-color: #374151; }
+        .sortable-drag { cursor: grabbing; }
 
         /* 行李清單自定義複選框 */
         .custom-checkbox input:checked + div {
@@ -509,8 +516,10 @@
                             <span><i :class="getCarryTypeIcon(type)" class="mr-2 text-gray-500 dark:text-gray-400"></i> {{ type }}</span>
                             <span class="text-xs bg-gray-200 dark:bg-slate-600 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-300">{{ group.filter(i => i.checked).length }}/{{ group.length }}</span>
                         </div>
-                        <div class="divide-y divide-gray-100 dark:divide-slate-700">
-                            <div v-for="item in group" :key="item.id" class="p-3 flex items-center transition duration-150">
+                        <!-- 修改：加入 packing-sortable-group 類別和 data-group-type -->
+                        <div class="divide-y divide-gray-100 dark:divide-slate-700 packing-sortable-group" :data-group-type="type">
+                            <!-- 修改：加入 data-id 屬性 -->
+                            <div v-for="item in group" :key="item.id" :data-id="item.id" class="p-3 flex items-center transition duration-150 select-none">
 								<label class="custom-checkbox flex items-center cursor-pointer mr-3">
 									<input type="checkbox" class="hidden" v-model="item.checked" @change="savePackingList">
 									<div class="w-6 h-6 border-2 border-gray-300 dark:border-gray-500 rounded-md flex items-center justify-center transition-colors bg-white dark:bg-slate-800">
@@ -633,10 +642,12 @@
 
 				<!-- 在網格檢視中顯示圖片 -->
 				<div v-if="viewMode === 'grid'" class="p-4">
-					<div class="grid grid-cols-2 gap-4">
-						<div v-for="item in filteredShoppingList" :key="item.id"
+                    <!-- 修改：加入 ID shopping-grid-container -->
+					<div id="shopping-grid-container" class="grid grid-cols-2 gap-4">
+                        <!-- 修改：加入 data-id -->
+						<div v-for="item in filteredShoppingList" :key="item.id" :data-id="item.id"
 							 @click="editShoppingItem(item)"
-							 class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-slate-700 group cursor-pointer hover:shadow-md transition-all duration-300">
+							 class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-slate-700 group cursor-pointer hover:shadow-md transition-all duration-300 select-none">
 							
 							<!-- 圖片區域 -->
 							<div class="relative h-32 overflow-hidden bg-gray-100 dark:bg-slate-700">
@@ -716,9 +727,13 @@
 					</div>
 				</div>
 				<!-- 列表檢視 -->
-				<div v-else-if="viewMode === 'list' && filteredShoppingList.length > 0" class="p-4 space-y-3">
-					<div v-for="item in filteredShoppingList" :key="item.id" 
-						 class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                <!-- 修改：加入 ID shopping-list-container -->
+				<div v-else-if="viewMode === 'list' && filteredShoppingList.length > 0" id="shopping-list-container" class="p-4 space-y-3">
+                    <!-- 修改：加入 data-id -->
+					<div v-for="item in filteredShoppingList" :key="item.id" :data-id="item.id"
+						 class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 select-none">
+						
+						<div class="flex gap-3">
 						
 						<div class="flex gap-3">
 							<!-- 圖片 -->
@@ -1250,8 +1265,10 @@
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <input v-model="newMemberName" placeholder="名字" class="flex-1 bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 dark:text-white">
-                    <button @click="addMember" class="px-5 bg-slate-800 text-white rounded-xl font-bold">新增</button>
+                    <!-- 加入 min-w-0 確保輸入框在窄螢幕下能正確縮小 -->
+                    <input v-model="newMemberName" placeholder="名字" class="flex-1 bg-gray-50 dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 dark:text-white min-w-0">
+                    <!-- 加入 flex-shrink-0 防止按鈕被擠壓，whitespace-nowrap 防止文字換行 -->
+                    <button @click="addMember" class="px-5 bg-slate-800 text-white rounded-xl font-bold flex-shrink-0 whitespace-nowrap">新增</button>
                 </div>
                 <button @click="showMemberModal = false" class="w-full mt-4 py-3 bg-gray-100 dark:bg-slate-800 text-gray-500 font-bold rounded-xl">完成</button>
             </div>
@@ -1834,14 +1851,15 @@
 				  // 先複製項目數據
 				  shoppingForm.value = { ...item };
 				  
-				  // 清理舊的 Blob URL（如果有）
-				  if (shoppingForm.value._imageCleanup) {
-					shoppingForm.value._imageCleanup();
-					delete shoppingForm.value._imageCleanup;
-				  }
+				  // 修正：移除這裡的 cleanup 呼叫。
+				  // 原因：shoppingForm 是淺拷貝，_imageCleanup 指向的是原列表項目的撤銷函數。
+				  // 如果在這裡執行，會把列表上正在顯示的圖片 URL 給撤銷掉，導致切換視圖後圖片破圖。
 				  
 				  // 嘗試載入圖片
-				  const imageData = await loadShoppingItemImage(item);
+				  // 修正：改傳入 shoppingForm.value，確保這張新載入的圖片及其 cleanup 函數
+				  // 是綁定在「表單物件」上，而不是覆蓋掉「原列表項目」的屬性。
+				  const imageData = await loadShoppingItemImage(shoppingForm.value);
+				  
 				  if (imageData) {
 					shoppingForm.value.imagePreview = imageData;
 				  } else if (item.imageName) {
@@ -2326,6 +2344,94 @@
 					
 					e.preventDefault();
 				};
+				
+				// --- 拖放排序邏輯 (新增) ---
+                let sortableInstances = [];
+
+                const initSortable = () => {
+                    // 清除舊的實例
+                    sortableInstances.forEach(s => s.destroy());
+                    sortableInstances = [];
+
+                    // 1. 初始化行李清單排序
+                    if (currentTab.value === 'packing') {
+                        const groups = document.querySelectorAll('.packing-sortable-group');
+                        groups.forEach(el => {
+                            sortableInstances.push(new Sortable(el, {
+                                group: 'packing', // 限制只能在同類別拖曳
+                                delay: 300,       // 長按 300ms 觸發
+                                delayOnTouchOnly: true,
+                                animation: 150,
+                                ghostClass: 'sortable-ghost',
+                                onEnd: (evt) => {
+                                    const groupType = el.getAttribute('data-group-type');
+                                    const newOrderIds = Array.from(el.children).map(child => child.getAttribute('data-id'));
+                                    
+                                    // 重新排序邏輯：
+                                    // 1. 找出所有不屬於此分類的項目 (保持不動)
+                                    // 2. 找出此分類的項目，並依照新的 DOM 順序重新排列
+                                    // 3. 合併回 packingList
+                                    const itemMap = new Map(packingList.value.map(i => [i.id, i]));
+                                    const otherItems = packingList.value.filter(i => (i.carry_type || '其他') !== groupType);
+                                    const sortedGroupItems = newOrderIds.map(id => itemMap.get(id)).filter(Boolean);
+                                    
+                                    packingList.value = [...otherItems, ...sortedGroupItems];
+                                    savePackingList();
+                                }
+                            }));
+                        });
+                    }
+
+                    // 2. 初始化購物清單排序
+                    if (currentTab.value === 'shopping') {
+                        const containerId = viewMode.value === 'grid' ? '#shopping-grid-container' : '#shopping-list-container';
+                        const el = document.querySelector(containerId);
+                        if (el) {
+                            sortableInstances.push(new Sortable(el, {
+                                delay: 300,
+                                delayOnTouchOnly: true,
+                                animation: 150,
+                                ghostClass: 'sortable-ghost',
+                                onEnd: (evt) => {
+                                    // 購物清單可能有篩選，邏輯較複雜
+                                    // 策略：找出當前顯示的所有項目 ID，將它們從原清單取出，
+                                    // 依照新順序填回原本這些項目所在的索引位置 (保持相對順序)
+                                    const newOrderIds = Array.from(el.children).map(child => child.getAttribute('data-id'));
+                                    
+                                    // 建立 ID -> Item 的映射
+                                    const currentList = [...shoppingList.value];
+                                    const itemMap = new Map(currentList.map(i => [i.id, i]));
+                                    
+                                    // 找出可見項目在原清單中的索引位置，並由小到大排序
+                                    const visibleIndices = [];
+                                    newOrderIds.forEach(id => {
+                                        const idx = currentList.findIndex(i => i.id === id);
+                                        if (idx !== -1) visibleIndices.push(idx);
+                                    });
+                                    visibleIndices.sort((a, b) => a - b);
+                                    
+                                    // 將依照新順序的項目，填回這些索引位置
+                                    newOrderIds.forEach((id, i) => {
+                                        const originalIndex = visibleIndices[i];
+                                        if (originalIndex !== undefined) {
+                                            currentList[originalIndex] = itemMap.get(id);
+                                        }
+                                    });
+                                    
+                                    shoppingList.value = currentList;
+                                    saveShoppingList();
+                                }
+                            }));
+                        }
+                    }
+                };
+
+                // 監聽會影響列表 DOM 的變數
+                watch([currentTab, viewMode, activeShoppingCategories], () => {
+                    nextTick(() => {
+                        initSortable();
+                    });
+                });
 
 				const handleCategoryMouseDown = (e) => {
 					if (!categoryScroll.value) return;
@@ -3258,6 +3364,8 @@
 					
 					// 自動滾動到第一個有項目的分類
 					autoScrollToFirstCategory();
+					// 初始化拖曳排序
+                    initSortable();
 				});
 
 				// 在 onBeforeUnmount 中清理
